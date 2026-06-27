@@ -3,7 +3,15 @@ const cors = require('cors');
 const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
 
 const app = express();
-app.use(cors());
+
+// Fix CORS - allow all origins
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.options('*', cors());
+
 app.use(express.json({ limit: '20mb' }));
 
 // ── CONFIG ──
@@ -15,7 +23,6 @@ const WORKBOOK_ID   = 'qe7xuf60bcd84eb7143c6b6e856d16a69d152';
 let cachedToken = null;
 let tokenExpiry = 0;
 
-// ── AUTO REFRESH TOKEN ──
 async function getAccessToken() {
   if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
 
@@ -31,15 +38,15 @@ async function getAccessToken() {
   });
 
   const data = await resp.json();
+  console.log('Token response:', JSON.stringify(data));
   if (!data.access_token) throw new Error('Token refresh failed: ' + JSON.stringify(data));
 
   cachedToken = data.access_token;
-  tokenExpiry = Date.now() + 55 * 60 * 1000; // 55 min cache
+  tokenExpiry = Date.now() + 55 * 60 * 1000;
   console.log('✅ Token refreshed at', new Date().toLocaleTimeString());
   return cachedToken;
 }
 
-// ── WRITE TO ZOHO SHEET ──
 async function writeToZoho(token, sheetName, row, col, csv) {
   const body = new URLSearchParams({
     method: 'worksheet.range.write',
@@ -59,15 +66,17 @@ async function writeToZoho(token, sheetName, row, col, csv) {
   });
 
   const json = await resp.json();
+  console.log(`Row ${row} col ${col}:`, JSON.stringify(json));
   return json;
 }
 
-// ── HEALTH CHECK ──
-app.get('/', (req, res) => res.json({ status: '✅ Agarwal Fabrics Bill Server Running' }));
+app.get('/', (req, res) => {
+  res.json({ status: '✅ Agarwal Fabrics Bill Server Running', time: new Date().toISOString() });
+});
 
-// ── MAIN PUSH ENDPOINT ──
 app.post('/push-bill', async (req, res) => {
   try {
+    console.log('📥 Received push-bill request');
     const { sheetName, startRow, billData } = req.body;
 
     if (!sheetName || !startRow || !billData) {
@@ -81,13 +90,11 @@ app.post('/push-bill', async (req, res) => {
       const bale = billData.bales[i];
       const row = startRow + i;
 
-      // H(8) to M(13): Bill Date, Bill No, Party, Quality, Bale No, Meters
       const csv1 = [
         billData.bill_date, billData.bill_no, billData.party_name,
         billData.quality, bale.bale_no, bale.meters
       ].join(',');
 
-      // R(18) to T(20): Bilty No, Total Bales, Transporter
       const csv2 = [
         billData.bilty_no, billData.total_bales, billData.transporter
       ].join(',');
@@ -102,14 +109,19 @@ app.post('/push-bill', async (req, res) => {
         success: r1.status === 'success' && r2.status === 'success'
       });
 
-      await new Promise(r => setTimeout(r, 300)); // rate limit
+      await new Promise(r => setTimeout(r, 300));
     }
 
     const allOk = results.every(r => r.success);
-    res.json({ success: allOk, results, pushed: results.filter(r=>r.success).length, failed: results.filter(r=>!r.success).length });
+    res.json({
+      success: allOk,
+      results,
+      pushed: results.filter(r => r.success).length,
+      failed: results.filter(r => !r.success).length
+    });
 
   } catch (err) {
-    console.error('Error:', err.message);
+    console.error('❌ Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
