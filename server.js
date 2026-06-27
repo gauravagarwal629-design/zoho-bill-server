@@ -44,7 +44,7 @@ async function writeToZoho(token, sheetName, row, col, csv) {
 }
 
 async function extractWithGemini(imageBase64, mediaType) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
   const prompt = 'Extract from this textile/fabric bill. ONLY valid JSON, no markdown, no explanation:\n{"bill_date":"DD-Mon-YY e.g. 23-Jun-26","bill_no":"invoice number","party_name":"supplier name","quality":"fabric quality e.g. 60x60-TAJ","bilty_no":"LR or bilty number","total_bales":number,"transporter":"transport company name","bales":[{"bale_no":"bale number","meters":number}]}\nExtract ALL bales listed.';
 
   const resp = await fetch(url, {
