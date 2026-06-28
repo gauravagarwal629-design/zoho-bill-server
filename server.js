@@ -11,7 +11,6 @@ const CLIENT_ID     = '1000.4HPPM4ZWIIFSETGTSVWOU7J8DBRHDV';
 const CLIENT_SECRET = '59142906ff3f3fbc622efe24411bb9be60f80a1955';
 const REFRESH_TOKEN = '1000.0960e26f79ead54a3543404063f084e1.6929ff664cc9af1fc3b0bf6504e3b6fc';
 const WORKBOOK_ID   = 'qe7xuf60bcd84eb7143c6b6e856d16a69d152';
-const GEMINI_KEY    = process.env.GEMINI_API_KEY;
 
 let cachedToken = null;
 let tokenExpiry = 0;
@@ -43,40 +42,44 @@ async function writeToZoho(token, sheetName, row, col, csv) {
   return json;
 }
 
-async function extractWithGemini(imageBase64, mediaType) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
-  const prompt = 'Extract from this textile/fabric bill. ONLY valid JSON, no markdown, no explanation:\n{"bill_date":"DD-Mon-YY e.g. 23-Jun-26","bill_no":"invoice number","party_name":"supplier name","quality":"fabric quality e.g. 60x60-TAJ","bilty_no":"LR or bilty number","total_bales":number,"transporter":"transport company name","bales":[{"bale_no":"bale number","meters":number}]}\nExtract ALL bales listed.';
-
-  const resp = await fetch(url, {
+async function readFromZoho(token, sheetName, range) {
+  const body = new URLSearchParams({ method: 'worksheet.range.read', worksheet_name: sheetName, range });
+  const resp = await fetch(`https://sheet.zoho.in/api/v2/${WORKBOOK_ID}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+  return await resp.json();
+}
+
+async function extractWithClaude(imageBase64, mediaType) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      contents: [{ parts: [
-        { inline_data: { mime_type: mediaType || 'image/jpeg', data: imageBase64 } },
-        { text: prompt }
+      model: 'claude-sonnet-4-6', max_tokens: 1000,
+      messages: [{ role: 'user', content: [
+        { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 } },
+        { type: 'text', text: 'Extract from this textile/fabric bill. ONLY valid JSON, no markdown:\n{"bill_date":"DD-Mon-YY","bill_no":"invoice number","party_name":"supplier name","quality":"fabric quality e.g. 60x60-TAJ","bilty_no":"LR or bilty number","total_bales":number,"transporter":"transport company name","bales":[{"bale_no":"bale number","meters":number}]}\nExtract ALL bales.' }
       ]}]
     })
   });
-
   const data = await resp.json();
-  console.log('Gemini response:', JSON.stringify(data).substring(0, 200));
-  
-  if (!data.candidates || !data.candidates[0]) throw new Error('Gemini failed: ' + JSON.stringify(data));
-  
-  const text = data.candidates[0].content.parts.map(p => p.text || '').join('');
-  const clean = text.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
+  if (!data.content) throw new Error('Claude failed: ' + JSON.stringify(data));
+  const text = data.content.map(c => c.text || '').join('');
+  return JSON.parse(text.replace(/```json|```/g, '').trim());
 }
 
 app.get('/', (req, res) => res.json({ status: '✅ Agarwal Fabrics Bill Server Running', time: new Date().toISOString() }));
 
+// ── PROCESS BILL (Extract + Push) ──
 app.post('/process-bill', async (req, res) => {
   try {
     const { imageBase64, mediaType, sheetName, startRow } = req.body;
     if (!imageBase64 || !sheetName || !startRow) return res.status(400).json({ error: 'Missing fields' });
 
-    console.log('📖 Extracting bill with Gemini...');
-    const billData = await extractWithGemini(imageBase64, mediaType);
+    console.log('📖 Extracting bill with Claude...');
+    const billData = await extractWithClaude(imageBase64, mediaType);
     console.log(`✅ Extracted ${billData.bales.length} bales`);
 
     console.log('📊 Pushing to Zoho...');
