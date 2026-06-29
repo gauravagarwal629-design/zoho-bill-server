@@ -11,6 +11,7 @@ const CLIENT_ID     = '1000.4HPPM4ZWIIFSETGTSVWOU7J8DBRHDV';
 const CLIENT_SECRET = '59142906ff3f3fbc622efe24411bb9be60f80a1955';
 const REFRESH_TOKEN = '1000.0960e26f79ead54a3543404063f084e1.6929ff664cc9af1fc3b0bf6504e3b6fc';
 const WORKBOOK_ID   = 'qe7xuf60bcd84eb7143c6b6e856d16a69d152';
+const ZOHO_SHEET_URL = `https://sheet.zoho.in/api/v2/${WORKBOOK_ID}`;
 
 let cachedToken = null;
 let tokenExpiry = 0;
@@ -31,16 +32,11 @@ async function getAccessToken() {
   if (!data.access_token) throw new Error('Token refresh failed: ' + JSON.stringify(data));
   cachedToken = data.access_token;
   tokenExpiry = Date.now() + 55 * 60 * 1000;
-  console.log('✅ Token refreshed. API domain:', data.api_domain);
-  return { token: data.access_token, apiDomain: data.api_domain };
+  console.log('✅ Token refreshed');
+  return cachedToken;
 }
 
-async function writeRange(tokenData, sheetName, row, col, csv) {
-  // Use the api_domain from token response
-  const baseUrl = tokenData.apiDomain 
-    ? `${tokenData.apiDomain}/sheet/api/v2/${WORKBOOK_ID}`
-    : `https://sheet.zoho.in/api/v2/${WORKBOOK_ID}`;
-
+async function writeRange(token, sheetName, row, col, csv) {
   const params = new URLSearchParams({
     method: 'worksheet.range.write',
     worksheet_name: sheetName,
@@ -49,25 +45,43 @@ async function writeRange(tokenData, sheetName, row, col, csv) {
     data: csv
   });
 
-  console.log(`Writing to: ${baseUrl} row ${row} col ${col}`);
+  console.log(`Writing ${ZOHO_SHEET_URL} row ${row} col ${col}: ${csv.substring(0,60)}`);
 
-  const resp = await fetch(baseUrl, {
+  const resp = await fetch(ZOHO_SHEET_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Zoho-oauthtoken ${tokenData.token}`,
+      'Authorization': `Zoho-oauthtoken ${token}`,
       'Content-Type': 'application/x-www-form-urlencoded'
     },
     body: params.toString()
   });
 
   const text = await resp.text();
-  console.log(`Response [${row},${col}]: ${text.substring(0, 150)}`);
-  
-  try { return JSON.parse(text); } 
-  catch(e) { return { status: 'error', raw: text }; }
+  console.log(`Response [${row},${col}]: ${text.substring(0, 200)}`);
+  try { return JSON.parse(text); }
+  catch(e) { return { status: 'error', raw: text.substring(0,100) }; }
 }
 
 app.get('/', (req, res) => res.json({ status: '✅ Agarwal Fabrics Bill Server Running', time: new Date().toISOString() }));
+
+// Test Zoho connection
+app.get('/test-zoho', async (req, res) => {
+  try {
+    const token = await getAccessToken();
+    const params = new URLSearchParams({
+      method: 'workbook.info'
+    });
+    const resp = await fetch(ZOHO_SHEET_URL, {
+      method: 'POST',
+      headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
+    });
+    const text = await resp.text();
+    res.send(text);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 app.post('/process-bill', async (req, res) => {
   try {
@@ -96,10 +110,10 @@ app.post('/process-bill', async (req, res) => {
     if (!aiData.content) throw new Error('Claude failed: ' + JSON.stringify(aiData));
     const text = aiData.content.map(c => c.text || '').join('');
     const billData = JSON.parse(text.replace(/```json|```/g, '').trim());
-    console.log(`✅ Extracted ${billData.bales.length} bales`);
+    console.log(`✅ Extracted ${billData.bales.length} bales from ${billData.bill_no}`);
 
     console.log('📊 Pushing to Zoho...');
-    const tokenData = await getAccessToken();
+    const token = await getAccessToken();
     const results = [];
 
     for (let i = 0; i < billData.bales.length; i++) {
@@ -115,9 +129,9 @@ app.post('/process-bill', async (req, res) => {
         billData.bilty_no, billData.total_bales, billData.transporter
       ].map(v => String(v || '').replace(/,/g, ' ')).join(',');
 
-      const r1 = await writeRange(tokenData, sheetName, row, 8, csv1);
+      const r1 = await writeRange(token, sheetName, row, 8, csv1);
       await new Promise(r => setTimeout(r, 400));
-      const r2 = await writeRange(tokenData, sheetName, row, 18, csv2);
+      const r2 = await writeRange(token, sheetName, row, 18, csv2);
       await new Promise(r => setTimeout(r, 400));
 
       const success = r1.status === 'success' && r2.status === 'success';
