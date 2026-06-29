@@ -35,19 +35,19 @@ async function getAccessToken() {
   return cachedToken;
 }
 
-async function writeRange(token, sheetName, row, col, csv) {
-  // Method goes in URL, other params in body
-  const url = `https://sheet.zoho.in/api/v2/${WORKBOOK_ID}?method=worksheet.range.write`;
+// Use REST endpoint style - set cell content via range
+async function setCellContent(token, sheetName, row, col, value) {
+  // Convert column number to letter (8=H, 9=I etc)
+  const colLetter = String.fromCharCode(64 + col);
+  const range = `${colLetter}${row}`;
   
+  const url = `https://sheet.zoho.in/api/v2/${WORKBOOK_ID}`;
   const body = new URLSearchParams({
+    method: 'worksheet.cell.content.set',
     worksheet_name: sheetName,
-    start_row: String(row),
-    start_column: String(col),
-    data: csv
+    cell_index: range,
+    content: String(value)
   });
-
-  console.log(`POST ${url}`);
-  console.log(`Body: worksheet=${sheetName} row=${row} col=${col} data=${csv.substring(0,50)}`);
 
   const resp = await fetch(url, {
     method: 'POST',
@@ -57,26 +57,44 @@ async function writeRange(token, sheetName, row, col, csv) {
     },
     body: body.toString()
   });
-
   const text = await resp.text();
-  console.log(`Response [${row},${col}]: ${text.substring(0, 150)}`);
-  try { return JSON.parse(text); }
-  catch(e) { return { status: 'error', raw: text }; }
+  console.log(`Set ${range}="${value}": ${text.substring(0,100)}`);
+  try { return JSON.parse(text); } catch(e) { return { status: 'error', raw: text }; }
 }
 
 app.get('/', (req, res) => res.json({ status: '✅ Agarwal Fabrics Bill Server Running', time: new Date().toISOString() }));
 
+// Test endpoint - try different methods
 app.get('/test-zoho', async (req, res) => {
   try {
     const token = await getAccessToken();
-    const url = `https://sheet.zoho.in/api/v2/${WORKBOOK_ID}?method=workbook.list`;
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: ''
-    });
-    const text = await resp.text();
-    res.send(text);
+    const results = {};
+    
+    // Try method 1: worksheet.cell.content.set
+    const methods = [
+      'worksheet.cell.content.set',
+      'worksheet.range.read',
+      'worksheet.cell.content.get',
+      'workbook.worksheets.list'
+    ];
+    
+    for (const method of methods) {
+      const url = `https://sheet.zoho.in/api/v2/${WORKBOOK_ID}`;
+      const body = new URLSearchParams({
+        method,
+        worksheet_name: '60x60',
+        cell_index: 'A1'
+      });
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+      });
+      const text = await resp.text();
+      results[method] = text.substring(0, 100);
+    }
+    
+    res.json(results);
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -111,7 +129,6 @@ app.post('/process-bill', async (req, res) => {
     const billData = JSON.parse(text.replace(/```json|```/g, '').trim());
     console.log(`✅ Extracted ${billData.bales.length} bales from ${billData.bill_no}`);
 
-    console.log('📊 Pushing to Zoho...');
     const token = await getAccessToken();
     const results = [];
 
@@ -119,27 +136,32 @@ app.post('/process-bill', async (req, res) => {
       const bale = billData.bales[i];
       const row = parseInt(startRow) + i;
 
-      const csv1 = [
-        billData.bill_date, billData.bill_no, billData.party_name,
-        billData.quality, bale.bale_no, bale.meters
-      ].map(v => String(v || '').replace(/,/g, ' ')).join(',');
+      // Write each cell individually
+      const cells = [
+        { col: 8,  val: billData.bill_date },
+        { col: 9,  val: billData.bill_no },
+        { col: 10, val: billData.party_name },
+        { col: 11, val: billData.quality },
+        { col: 12, val: bale.bale_no },
+        { col: 13, val: bale.meters },
+        { col: 18, val: billData.bilty_no },
+        { col: 19, val: billData.total_bales },
+        { col: 20, val: billData.transporter }
+      ];
 
-      const csv2 = [
-        billData.bilty_no, billData.total_bales, billData.transporter
-      ].map(v => String(v || '').replace(/,/g, ' ')).join(',');
+      let rowSuccess = true;
+      for (const cell of cells) {
+        const r = await setCellContent(token, sheetName, row, cell.col, cell.val);
+        if (r.status !== 'success') rowSuccess = false;
+        await new Promise(res => setTimeout(res, 200));
+      }
 
-      const r1 = await writeRange(token, sheetName, row, 8, csv1);
-      await new Promise(r => setTimeout(r, 400));
-      const r2 = await writeRange(token, sheetName, row, 18, csv2);
-      await new Promise(r => setTimeout(r, 400));
-
-      const success = r1.status === 'success' && r2.status === 'success';
-      results.push({ row, bale_no: bale.bale_no, meters: bale.meters, success });
+      results.push({ row, bale_no: bale.bale_no, meters: bale.meters, success: rowSuccess });
     }
 
     const pushed = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
-    console.log(`✅ Done: ${pushed} pushed, ${failed} failed`);
+    console.log(`Done: ${pushed} pushed, ${failed} failed`);
 
     res.json({ success: failed === 0, billData, results, pushed, failed });
 
