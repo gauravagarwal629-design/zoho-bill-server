@@ -78,7 +78,8 @@ app.post('/process-bill', async (req, res) => {
     if (biltyImageBase64) {
       console.log('🚛 Reading bilty...');
       const text = await callClaude(
-        'Extract transport details from this bilty/LR (Lorry Receipt). ONLY valid JSON, no markdown:\n{"bilty_no":"the LR/bilty number","total_bales":number of packages/bales,"transporter":"transport company name from letterhead"}',
+        'Extract transport details from this physical bilty/LR (Lorry Receipt) copy. ONLY valid JSON, no markdown:\n{"bilty_no":"the SHORT bilty/LR number printed or handwritten on this document - this is usually a 4-6 digit number like 95807 or 98817, NOT the long way bill number","total_bales":total number of packages/bales as number,"transporter":"transport company name from the letterhead at top of document e.g. C.R. Logistics, South India Transport"}
+IMPORTANT: bilty_no should be the short number assigned by the transport company, NOT the long IRN/way bill/e-way bill number.',
         biltyImageBase64, biltyMediaType
       );
       const biltyData = JSON.parse(text.replace(/```json|```/g,'').trim());
