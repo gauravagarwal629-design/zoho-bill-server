@@ -31,48 +31,40 @@ async function getAccessToken() {
   if (!data.access_token) throw new Error('Token refresh failed: ' + JSON.stringify(data));
   cachedToken = data.access_token;
   tokenExpiry = Date.now() + 55 * 60 * 1000;
-  console.log('✅ Zoho token refreshed');
-  return cachedToken;
+  console.log('✅ Token refreshed. API domain:', data.api_domain);
+  return { token: data.access_token, apiDomain: data.api_domain };
 }
 
-async function writeRowToZoho(token, sheetName, row, billData, bale) {
-  // Build cell_data array for all columns in one API call
-  const cellData = [
-    { row_index: row, column_index: 8,  value: String(billData.bill_date || '') },
-    { row_index: row, column_index: 9,  value: String(billData.bill_no || '') },
-    { row_index: row, column_index: 10, value: String(billData.party_name || '') },
-    { row_index: row, column_index: 11, value: String(billData.quality || '') },
-    { row_index: row, column_index: 12, value: String(bale.bale_no || '') },
-    { row_index: row, column_index: 13, value: String(bale.meters || '') },
-    { row_index: row, column_index: 18, value: String(billData.bilty_no || '') },
-    { row_index: row, column_index: 19, value: String(billData.total_bales || '') },
-    { row_index: row, column_index: 20, value: String(billData.transporter || '') }
-  ];
+async function writeRange(tokenData, sheetName, row, col, csv) {
+  // Use the api_domain from token response
+  const baseUrl = tokenData.apiDomain 
+    ? `${tokenData.apiDomain}/sheet/api/v2/${WORKBOOK_ID}`
+    : `https://sheet.zoho.in/api/v2/${WORKBOOK_ID}`;
 
-  const body = new URLSearchParams({
-    method: 'worksheet.cell.update',
+  const params = new URLSearchParams({
+    method: 'worksheet.range.write',
     worksheet_name: sheetName,
-    cell_data: JSON.stringify(cellData)
+    start_row: String(row),
+    start_column: String(col),
+    data: csv
   });
 
-  const resp = await fetch(`https://sheet.zoho.in/api/v2/${WORKBOOK_ID}`, {
+  console.log(`Writing to: ${baseUrl} row ${row} col ${col}`);
+
+  const resp = await fetch(baseUrl, {
     method: 'POST',
     headers: {
-      'Authorization': `Zoho-oauthtoken ${token}`,
+      'Authorization': `Zoho-oauthtoken ${tokenData.token}`,
       'Content-Type': 'application/x-www-form-urlencoded'
     },
-    body: body.toString()
+    body: params.toString()
   });
 
   const text = await resp.text();
-  console.log(`Row ${row} response: ${text.substring(0, 150)}`);
+  console.log(`Response [${row},${col}]: ${text.substring(0, 150)}`);
   
-  try {
-    const json = JSON.parse(text);
-    return json.status === 'success';
-  } catch(e) {
-    return false;
-  }
+  try { return JSON.parse(text); } 
+  catch(e) { return { status: 'error', raw: text }; }
 }
 
 app.get('/', (req, res) => res.json({ status: '✅ Agarwal Fabrics Bill Server Running', time: new Date().toISOString() }));
@@ -104,19 +96,32 @@ app.post('/process-bill', async (req, res) => {
     if (!aiData.content) throw new Error('Claude failed: ' + JSON.stringify(aiData));
     const text = aiData.content.map(c => c.text || '').join('');
     const billData = JSON.parse(text.replace(/```json|```/g, '').trim());
-    console.log(`✅ Extracted ${billData.bales.length} bales from bill ${billData.bill_no}`);
+    console.log(`✅ Extracted ${billData.bales.length} bales`);
 
-    console.log('📊 Pushing to Zoho Sheet...');
-    const token = await getAccessToken();
+    console.log('📊 Pushing to Zoho...');
+    const tokenData = await getAccessToken();
     const results = [];
 
     for (let i = 0; i < billData.bales.length; i++) {
       const bale = billData.bales[i];
       const row = parseInt(startRow) + i;
-      console.log(`Writing row ${row}: Bale ${bale.bale_no}`);
-      const success = await writeRowToZoho(token, sheetName, row, billData, bale);
+
+      const csv1 = [
+        billData.bill_date, billData.bill_no, billData.party_name,
+        billData.quality, bale.bale_no, bale.meters
+      ].map(v => String(v || '').replace(/,/g, ' ')).join(',');
+
+      const csv2 = [
+        billData.bilty_no, billData.total_bales, billData.transporter
+      ].map(v => String(v || '').replace(/,/g, ' ')).join(',');
+
+      const r1 = await writeRange(tokenData, sheetName, row, 8, csv1);
+      await new Promise(r => setTimeout(r, 400));
+      const r2 = await writeRange(tokenData, sheetName, row, 18, csv2);
+      await new Promise(r => setTimeout(r, 400));
+
+      const success = r1.status === 'success' && r2.status === 'success';
       results.push({ row, bale_no: bale.bale_no, meters: bale.meters, success });
-      await new Promise(r => setTimeout(r, 500));
     }
 
     const pushed = results.filter(r => r.success).length;
