@@ -14,7 +14,7 @@ async function callClaude(prompt, imageBase64, mediaType) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001', max_tokens: 2000,
+      model: 'claude-sonnet-4-6', max_tokens: 2000,
       messages: [{ role: 'user', content: [
         { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 } },
         { type: 'text', text: prompt }
@@ -94,7 +94,7 @@ app.post('/process-bill', async (req, res) => {
       if (baleImageBase64) {
         console.log('📦 Reading bale slips photo 1...');
         const text = await callClaude(
-          'Extract bale data from these handwritten packing slips. Each slip has Bale No (number in box at top) and Mtrs (TOTAL meters next to "Mtrs." at top - NOT individual piece meters below). ONLY valid JSON, no markdown:\n{"bales":[{"bale_no":"bale number","meters":total meters as number}]}\nExtract ALL bales. Use TOTAL meters from top of each slip.',
+          'Extract bale data from these handwritten packing slips. The image may be rotated - handle any orientation. Each packing slip has: 1) Bale No (a 4-digit number in a box e.g. 1128, 1127, 1126) 2) Mtrs field showing TOTAL meters for that bale (e.g. 1014, 1038, 1024). ONLY use the TOTAL meters shown next to "Mtrs." - do NOT add up individual piece meters. ONLY valid JSON, no markdown:\n{"bales":[{"bale_no":"4-digit bale number","meters":total meters as number}]}\nExtract ALL bales visible regardless of image orientation.',
           baleImageBase64, baleMediaType
         );
         const data1 = JSON.parse(text.replace(/```json|```/g,'').trim());
@@ -106,7 +106,7 @@ app.post('/process-bill', async (req, res) => {
       if (bale2ImageBase64) {
         console.log('📦 Reading bale slips photo 2...');
         const text = await callClaude(
-          'Extract bale data from these handwritten packing slips. Each slip has Bale No (number in box at top) and Mtrs (TOTAL meters next to "Mtrs." at top - NOT individual piece meters below). ONLY valid JSON, no markdown:\n{"bales":[{"bale_no":"bale number","meters":total meters as number}]}\nExtract ALL bales. Use TOTAL meters from top of each slip.',
+          'Extract bale data from these handwritten packing slips. The image may be rotated - handle any orientation. Each packing slip has: 1) Bale No (a 4-digit number in a box e.g. 1128, 1127, 1126) 2) Mtrs field showing TOTAL meters for that bale (e.g. 1014, 1038, 1024). ONLY use the TOTAL meters shown next to "Mtrs." - do NOT add up individual piece meters. ONLY valid JSON, no markdown:\n{"bales":[{"bale_no":"4-digit bale number","meters":total meters as number}]}\nExtract ALL bales visible regardless of image orientation.',
           bale2ImageBase64, bale2MediaType
         );
         const data2 = JSON.parse(text.replace(/```json|```/g,'').trim());
