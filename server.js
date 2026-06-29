@@ -35,34 +35,43 @@ async function getAccessToken() {
   return cachedToken;
 }
 
-async function writeRange(token, sheetName, row, col, csv) {
-  const params = new URLSearchParams({
-    method: 'worksheet.range.write',
+async function writeRowToZoho(token, sheetName, row, billData, bale) {
+  // Build cell_data array for all columns in one API call
+  const cellData = [
+    { row_index: row, column_index: 8,  value: String(billData.bill_date || '') },
+    { row_index: row, column_index: 9,  value: String(billData.bill_no || '') },
+    { row_index: row, column_index: 10, value: String(billData.party_name || '') },
+    { row_index: row, column_index: 11, value: String(billData.quality || '') },
+    { row_index: row, column_index: 12, value: String(bale.bale_no || '') },
+    { row_index: row, column_index: 13, value: String(bale.meters || '') },
+    { row_index: row, column_index: 18, value: String(billData.bilty_no || '') },
+    { row_index: row, column_index: 19, value: String(billData.total_bales || '') },
+    { row_index: row, column_index: 20, value: String(billData.transporter || '') }
+  ];
+
+  const body = new URLSearchParams({
+    method: 'worksheet.cell.update',
     worksheet_name: sheetName,
-    start_row: String(row),
-    start_column: String(col),
-    data: csv
+    cell_data: JSON.stringify(cellData)
   });
 
-  const url = `https://sheet.zoho.in/api/v2/${WORKBOOK_ID}`;
-  console.log(`Writing row ${row} col ${col}: ${csv.substring(0,50)}`);
-
-  const resp = await fetch(url, {
+  const resp = await fetch(`https://sheet.zoho.in/api/v2/${WORKBOOK_ID}`, {
     method: 'POST',
     headers: {
       'Authorization': `Zoho-oauthtoken ${token}`,
       'Content-Type': 'application/x-www-form-urlencoded'
     },
-    body: params.toString()
+    body: body.toString()
   });
 
   const text = await resp.text();
-  console.log(`Response row ${row} col ${col}: ${text.substring(0,100)}`);
+  console.log(`Row ${row} response: ${text.substring(0, 150)}`);
   
   try {
-    return JSON.parse(text);
+    const json = JSON.parse(text);
+    return json.status === 'success';
   } catch(e) {
-    return { status: 'error', raw: text };
+    return false;
   }
 }
 
@@ -73,7 +82,6 @@ app.post('/process-bill', async (req, res) => {
     const { imageBase64, mediaType, sheetName, startRow } = req.body;
     if (!imageBase64 || !sheetName || !startRow) return res.status(400).json({ error: 'Missing fields' });
 
-    // Extract with Claude
     console.log('📖 Extracting bill with Claude...');
     const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -98,7 +106,6 @@ app.post('/process-bill', async (req, res) => {
     const billData = JSON.parse(text.replace(/```json|```/g, '').trim());
     console.log(`✅ Extracted ${billData.bales.length} bales from bill ${billData.bill_no}`);
 
-    // Push to Zoho
     console.log('📊 Pushing to Zoho Sheet...');
     const token = await getAccessToken();
     const results = [];
@@ -106,37 +113,15 @@ app.post('/process-bill', async (req, res) => {
     for (let i = 0; i < billData.bales.length; i++) {
       const bale = billData.bales[i];
       const row = parseInt(startRow) + i;
-
-      // H(8) to M(13): Bill Date, Bill No, Party, Quality, Bale No, Meters
-      const csv1 = [
-        billData.bill_date,
-        billData.bill_no,
-        billData.party_name,
-        billData.quality,
-        bale.bale_no,
-        bale.meters
-      ].map(v => String(v || '').replace(/,/g, ' ')).join(',');
-
-      // R(18) to T(20): Bilty No, Total Bales, Transporter
-      const csv2 = [
-        billData.bilty_no,
-        billData.total_bales,
-        billData.transporter
-      ].map(v => String(v || '').replace(/,/g, ' ')).join(',');
-
-      const r1 = await writeRange(token, sheetName, row, 8, csv1);
+      console.log(`Writing row ${row}: Bale ${bale.bale_no}`);
+      const success = await writeRowToZoho(token, sheetName, row, billData, bale);
+      results.push({ row, bale_no: bale.bale_no, meters: bale.meters, success });
       await new Promise(r => setTimeout(r, 500));
-      const r2 = await writeRange(token, sheetName, row, 18, csv2);
-      await new Promise(r => setTimeout(r, 500));
-
-      const success = r1.status === 'success' && r2.status === 'success';
-      results.push({ row, bale_no: bale.bale_no, meters: bale.meters, success, r1: r1.status, r2: r2.status });
     }
 
     const pushed = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
     console.log(`✅ Done: ${pushed} pushed, ${failed} failed`);
-    console.log('Results:', JSON.stringify(results));
 
     res.json({ success: failed === 0, billData, results, pushed, failed });
 
