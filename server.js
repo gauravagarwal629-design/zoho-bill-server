@@ -11,7 +11,6 @@ const CLIENT_ID     = '1000.4HPPM4ZWIIFSETGTSVWOU7J8DBRHDV';
 const CLIENT_SECRET = '59142906ff3f3fbc622efe24411bb9be60f80a1955';
 const REFRESH_TOKEN = '1000.0960e26f79ead54a3543404063f084e1.6929ff664cc9af1fc3b0bf6504e3b6fc';
 const WORKBOOK_ID   = 'qe7xuf60bcd84eb7143c6b6e856d16a69d152';
-const ZOHO_SHEET_URL = `https://sheet.zoho.in/api/v2/${WORKBOOK_ID}`;
 
 let cachedToken = null;
 let tokenExpiry = 0;
@@ -37,44 +36,44 @@ async function getAccessToken() {
 }
 
 async function writeRange(token, sheetName, row, col, csv) {
-  const params = new URLSearchParams({
-    method: 'worksheet.range.write',
+  // Method goes in URL, other params in body
+  const url = `https://sheet.zoho.in/api/v2/${WORKBOOK_ID}?method=worksheet.range.write`;
+  
+  const body = new URLSearchParams({
     worksheet_name: sheetName,
     start_row: String(row),
     start_column: String(col),
     data: csv
   });
 
-  console.log(`Writing ${ZOHO_SHEET_URL} row ${row} col ${col}: ${csv.substring(0,60)}`);
+  console.log(`POST ${url}`);
+  console.log(`Body: worksheet=${sheetName} row=${row} col=${col} data=${csv.substring(0,50)}`);
 
-  const resp = await fetch(ZOHO_SHEET_URL, {
+  const resp = await fetch(url, {
     method: 'POST',
     headers: {
       'Authorization': `Zoho-oauthtoken ${token}`,
       'Content-Type': 'application/x-www-form-urlencoded'
     },
-    body: params.toString()
+    body: body.toString()
   });
 
   const text = await resp.text();
-  console.log(`Response [${row},${col}]: ${text.substring(0, 200)}`);
+  console.log(`Response [${row},${col}]: ${text.substring(0, 150)}`);
   try { return JSON.parse(text); }
-  catch(e) { return { status: 'error', raw: text.substring(0,100) }; }
+  catch(e) { return { status: 'error', raw: text }; }
 }
 
 app.get('/', (req, res) => res.json({ status: '✅ Agarwal Fabrics Bill Server Running', time: new Date().toISOString() }));
 
-// Test Zoho connection
 app.get('/test-zoho', async (req, res) => {
   try {
     const token = await getAccessToken();
-    const params = new URLSearchParams({
-      method: 'workbook.info'
-    });
-    const resp = await fetch(ZOHO_SHEET_URL, {
+    const url = `https://sheet.zoho.in/api/v2/${WORKBOOK_ID}?method=workbook.list`;
+    const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Authorization': `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString()
+      body: ''
     });
     const text = await resp.text();
     res.send(text);
