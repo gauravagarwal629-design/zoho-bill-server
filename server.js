@@ -76,17 +76,17 @@ app.post('/process-bill', async (req, res) => {
 
     // ── BILTY EXTRACTION ──
     if (biltyImageBase64) {
-      console.log('🚛 Reading bilty...');
+      console.log('🚛 Reading bilty (this OVERRIDES bill data for transport fields)...');
       const text = await callClaude(
-        'Extract transport details from this physical bilty/LR (Lorry Receipt) copy. ONLY valid JSON, no markdown:\n{"bilty_no":"the SHORT bilty/LR number printed or handwritten on this document - this is usually a 4-6 digit number like 95807 or 98817, NOT the long way bill number","total_bales":total number of packages/bales as number,"transporter":"transport company name from the letterhead at top of document e.g. C.R. Logistics, South India Transport"}
-IMPORTANT: bilty_no should be the short number assigned by the transport company, NOT the long IRN/way bill/e-way bill number.',
+        'This is a photo of a physical Bilty / LR (Lorry Receipt) document issued by a transport company. This document is the SOURCE OF TRUTH for transport details - ignore any other document. Extract ONLY from THIS bilty image. ONLY valid JSON, no markdown:\n{"bilty_no":"the bilty/LR number printed or stamped on THIS document (often in red ink, bottom-left area, a 4-6 digit number)","total_bales":"the number in the Packages field at top of THIS document","transporter":"the transport company name from the letterhead/logo at top of THIS document"}\nExtract these 3 fields ONLY from what is written on this specific bilty document.',
         biltyImageBase64, biltyMediaType
       );
       const biltyData = JSON.parse(text.replace(/```json|```/g,'').trim());
-      if (biltyData.bilty_no) billData.bilty_no = biltyData.bilty_no;
-      if (biltyData.total_bales) billData.total_bales = biltyData.total_bales;
-      if (biltyData.transporter) billData.transporter = biltyData.transporter;
-      console.log(`✅ Bilty: ${billData.bilty_no}, ${billData.total_bales} bales, ${billData.transporter}`);
+      // Bilty data ALWAYS overrides bill data for these 3 fields
+      billData.bilty_no = biltyData.bilty_no || billData.bilty_no;
+      billData.total_bales = biltyData.total_bales || billData.total_bales;
+      billData.transporter = biltyData.transporter || billData.transporter;
+      console.log(`✅ Bilty (overriding bill): ${billData.bilty_no}, ${billData.total_bales} bales, ${billData.transporter}`);
     }
 
     // ── BALE SLIPS EXTRACTION ──
