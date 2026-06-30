@@ -78,7 +78,7 @@ app.post('/process-bill', async (req, res) => {
     if (biltyImageBase64) {
       console.log('🚛 Reading bilty (this OVERRIDES bill data for transport fields)...');
       const text = await callClaude(
-        'This is a photo of a physical Bilty / LR (Lorry Receipt) document issued by a transport company. This document is the SOURCE OF TRUTH for transport details - ignore any other document. Extract ONLY from THIS bilty image. ONLY valid JSON, no markdown:\n{"bilty_no":"the bilty/LR number printed or stamped on THIS document (often in red ink, bottom-left area, a 4-6 digit number)","total_bales":"the number in the Packages field at top of THIS document","transporter":"the transport company name from the letterhead/logo at top of THIS document"}\nExtract these 3 fields ONLY from what is written on this specific bilty document.',
+        'This is a photo of a physical Bilty / LR (Lorry Receipt) document issued by a transport company. This document is the SOURCE OF TRUTH for transport details - ignore any other document. Extract ONLY from THIS bilty image. ONLY valid JSON, no markdown:\n{"bilty_no":"the bilty/LR number printed or stamped on THIS document (often in red ink, bottom-left area, a 4-6 digit number)","total_bales":"the number in the Packages field at top of THIS document","transporter":"the transport company name from the letterhead/logo at top of THIS document","bale_numbers":["list of individual bale numbers if visible in Private Marks field, e.g. if it shows a range like 1126 TO 1130 expand to [1126,1127,1128,1129,1130], if individual numbers listed include all"]}\nExtract these fields ONLY from what is written on this specific bilty document. The Private Marks field often shows bale number ranges like "1126 TO 1130" - expand any range into individual numbers.',
         biltyImageBase64, biltyMediaType
       );
       const biltyData = JSON.parse(text.replace(/```json|```/g,'').trim());
@@ -86,6 +86,10 @@ app.post('/process-bill', async (req, res) => {
       billData.bilty_no = biltyData.bilty_no || billData.bilty_no;
       billData.total_bales = biltyData.total_bales || billData.total_bales;
       billData.transporter = biltyData.transporter || billData.transporter;
+      if (biltyData.bale_numbers && biltyData.bale_numbers.length > 0) {
+        bales = biltyData.bale_numbers.map(bn => ({ bale_no: String(bn), meters: '' }));
+        console.log(`✅ Bale numbers from bilty: ${bales.map(b=>b.bale_no).join(', ')}`);
+      }
       console.log(`✅ Bilty (overriding bill): ${billData.bilty_no}, ${billData.total_bales} bales, ${billData.transporter}`);
     }
 
@@ -121,16 +125,34 @@ app.post('/process-bill', async (req, res) => {
     const results = [];
 
     if (mode === 'bill') {
-      // Bill only - one row, no bale details
-      const ok = await sendToMake({
-        sheet_name: sheetName, row: parseInt(startRow),
-        bill_date: billData.bill_date||'', bill_no: billData.bill_no||'',
-        party_name: billData.party_name||'', quality: billData.quality||'',
-        bale_no: '', meters: '',
-        bilty_no: String(billData.bilty_no||''), total_bales: String(billData.total_bales||''),
-        transporter: billData.transporter||''
-      });
-      results.push({ row: parseInt(startRow), bale_no: '—', meters: '—', success: ok });
+      if (bales.length > 0) {
+        // Bilty gave us bale numbers - push one row per bale (meters left empty for later)
+        for (let i = 0; i < bales.length; i++) {
+          const bale = bales[i];
+          const row = parseInt(startRow) + i;
+          const ok = await sendToMake({
+            sheet_name: sheetName, row,
+            bill_date: billData.bill_date||'', bill_no: billData.bill_no||'',
+            party_name: billData.party_name||'', quality: billData.quality||'',
+            bale_no: String(bale.bale_no), meters: '',
+            bilty_no: String(billData.bilty_no||''), total_bales: String(billData.total_bales||''),
+            transporter: billData.transporter||''
+          });
+          results.push({ row, bale_no: bale.bale_no, meters: '—', success: ok });
+          await new Promise(r => setTimeout(r, 500));
+        }
+      } else {
+        // No bale numbers available - one summary row
+        const ok = await sendToMake({
+          sheet_name: sheetName, row: parseInt(startRow),
+          bill_date: billData.bill_date||'', bill_no: billData.bill_no||'',
+          party_name: billData.party_name||'', quality: billData.quality||'',
+          bale_no: '', meters: '',
+          bilty_no: String(billData.bilty_no||''), total_bales: String(billData.total_bales||''),
+          transporter: billData.transporter||''
+        });
+        results.push({ row: parseInt(startRow), bale_no: '—', meters: '—', success: ok });
+      }
 
     } else if (mode === 'bale') {
       // Bale only - just bale details
