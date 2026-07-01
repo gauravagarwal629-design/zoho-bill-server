@@ -580,6 +580,35 @@ function formatChallanDate(dateStr) {
 // screen. Remove once /issue-bales is confirmed working.
 // TEMPORARY DEBUG TOOL - lists every worksheet name/ID exactly as Zoho's API
 // sees them, to compare against the tab names visible in the browser.
+// TEMPORARY DEBUG TOOL - test zoho.sheet.find, which does a literal text search
+// and returns row/column positions directly - unlike the Tabular API, this does
+// NOT stop at blank rows, since it isn't trying to treat the sheet as one table.
+app.post('/debug-zoho-find', async (req, res) => {
+  try {
+    const { sheetName, searchText, columnIndex } = req.body;
+    if (!sheetName || !searchText) {
+      return res.status(400).json({ error: 'Need sheetName and searchText' });
+    }
+    const token = await getZohoAccessToken();
+    const paramObj = {
+      method: 'find',
+      scope: columnIndex ? 'column' : 'worksheet',
+      search_text: String(searchText),
+      worksheet_name: sheetName
+    };
+    if (columnIndex) paramObj.column_index = String(columnIndex);
+    const params = new URLSearchParams(paramObj);
+    const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
+      method: 'POST',
+      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    });
+    const data = await resp.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/debug-zoho-worksheets', async (req, res) => {
   try {
     const token = await getZohoAccessToken();
