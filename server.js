@@ -1,11 +1,21 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
 
 const app = express();
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'OPTIONS'], allowedHeaders: ['Content-Type'] }));
 app.options('*', cors());
 app.use(express.json({ limit: '50mb' }));
+
+// Serves the Bill Updater front-end at /app - put bill_updater_7.html (renamed to
+// index.html) inside a "public" folder in the repo root, next to server.js:
+//   public/index.html
+// Then https://zoho-bill-server.onrender.com/app/ opens it - works from any phone
+// browser, no separate hosting needed. Add it to your phone's home screen for an
+// app-like icon (Chrome: menu -> "Add to Home screen"; Safari: Share -> "Add to
+// Home Screen").
+app.use('/app', express.static(path.join(__dirname, 'public')));
 
 const MAKE_WEBHOOK = 'https://hook.eu1.make.com/mxzr6p250u98i12pxt9u8miamkla6fh7';
 
