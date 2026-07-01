@@ -69,7 +69,8 @@ function mergeBales(existing, incoming) {
 }
 
 
-// ("This model does not support assistant message prefill"). The old '{' prefill
+// Claude 4.6+ models reject assistant-turn prefill outright ("This model does
+// not support assistant message prefill"). The old '{' prefill
 // trick is dead. The correct, GA replacement is Structured Outputs: pass a JSON
 // Schema via output_config.format and the API grammar-constrains the response to
 // match it exactly - no preamble, no markdown fences, no regex cleanup needed.
@@ -192,13 +193,16 @@ async function sendToMake(payload) {
 
 app.get('/', (req, res) => res.json({ status: '✅ Agarwal Fabrics Bill Server Running', time: new Date().toISOString() }));
 
-app.post('/process-bill', async (req, res) => {
+// ── STEP 1: EXTRACT ONLY (no push to Zoho) ──
+// Returns billData + bales so the front-end can show a review/edit screen before
+// anything gets written to the sheet.
+app.post('/extract-bill', async (req, res) => {
   try {
     const { mode, mainImageBase64, mainMediaType, baleImageBase64, baleMediaType,
             bale2ImageBase64, bale2MediaType, biltyImageBase64, biltyMediaType,
             sheetName, startRow, quality: manualQuality } = req.body;
 
-    console.log(`📋 Mode: ${mode}, Sheet: ${sheetName}, Row: ${startRow}`);
+    console.log(`📋 [EXTRACT] Mode: ${mode}, Sheet: ${sheetName}, Row: ${startRow}`);
 
     let billData = {};
     let bales = [];
@@ -233,7 +237,7 @@ app.post('/process-bill', async (req, res) => {
     if (biltyImageBase64) {
       console.log('🚛 Reading bilty (this OVERRIDES bill data for transport fields)...');
       const text = await callClaude(
-        'This is a photo of a physical Bilty / LR (Lorry Receipt) document issued by a transport company (could be in any orientation, even sideways or upside down - read carefully). This document is the SOURCE OF TRUTH for transport details. Extract: bilty_no - CRITICAL: this is the number stamped (often in red ink) or handwritten specifically INSIDE the box labeled "OFFICE USE ONLY", which sits near the Actual/Charged weight fields. It is usually 5-6 digits. Every LR form also has a separate PRE-PRINTED serial number somewhere in the header or corner of the page (part of the printed stationery/booklet itself) - this is NOT the bilty_no, ignore it completely even though it may look more prominent or "official". Only use the number that is physically stamped or written inside the OFFICE USE ONLY box. Also extract: total_bales (the number written in the No. of Packages field, could be written as a word like Five = 5), transporter (the transport company name from the letterhead/logo at top, e.g. Shree Ram Roadways), and bale_numbers (every individual bale number from the Private Mark field - it often contains a handwritten range like "1012 TO 1016" or "1012-1016", which must be expanded into every individual number 1012,1013,1014,1015,1016 as separate array items, not left as a range).',
+        'This is a photo of a physical Bilty / LR (Lorry Receipt) document issued by a transport company (could be in any orientation, even sideways or upside down - read carefully). This document is the SOURCE OF TRUTH for transport details. Extract: bilty_no - CRITICAL: this is the number stamped (often in red ink) or handwritten specifically INSIDE the box labeled "OFFICE USE ONLY", which sits near the Actual/Charged weight fields. It is usually 5-6 digits. Every LR form also has a separate PRE-PRINTED serial number somewhere in the header or corner of the page (part of the printed stationery/booklet itself) - this is NOT the bilty_no, ignore it completely even though it may look more prominent or "official". Only use the number that is physically stamped or written inside the OFFICE USE ONLY box. Also extract: total_bales (the number written in the No. of Packages field, could be written as a word like Five = 5), transporter (the transport company name from the letterhead/logo at top, e.g. Shree Ram Roadways), and bale_numbers (every individual bale number from the Private Mark field - it often contains a handwritten range like "1012 TO 1016" or "1012-1016", which must be expanded into every individual number 1012,1013,1014,1015,1016 as separate array items, not left as a range. Read each digit carefully - handwritten 2 and 7 are easily confused, as are 1 and 7; look at the overall shape and any serif/flag stroke to tell them apart, and cross-check that consecutive numbers in a range make sense e.g. if you read 1021 then 1075 as the two ends of a range, reconsider whether the first digit is actually a 7 not a 2, since ranges are almost always small and sequential).',
         biltyImageBase64, biltyMediaType, biltySchema
       );
       const biltyData = extractJSON(text);
@@ -274,7 +278,7 @@ app.post('/process-bill', async (req, res) => {
       if (baleImageBase64) {
         console.log('📦 Reading bale slips photo 1...');
         const text = await callClaude(
-          'Extract bale data from these handwritten packing slips. The image may be rotated - handle any orientation. Each packing slip has: 1) Bale No (a 4-digit number in a box e.g. 1128, 1127, 1126) 2) Mtrs field showing TOTAL meters for that bale (e.g. 1014, 1038, 1024). ONLY use the TOTAL meters shown next to "Mtrs." - do NOT add up individual piece meters. Extract ALL bales visible regardless of image orientation.',
+          'Extract bale data from these handwritten packing slips. The image may be rotated - handle any orientation. Each packing slip has: 1) Bale No (a 4-digit number in a box e.g. 1128, 1127, 1126 - read each digit carefully, handwritten 1 and 7 are easily confused, as are 2 and 7; the bale numbers on slips from the same batch are usually close together sequentially, so use that as a sanity check) 2) Mtrs field showing TOTAL meters for that bale (e.g. 1014, 1038, 1024). ONLY use the TOTAL meters shown next to "Mtrs." - do NOT add up individual piece meters. Extract ALL bales visible regardless of image orientation.',
           baleImageBase64, baleMediaType, baleSlipSchema
         );
         const data1 = extractJSON(text);
@@ -286,7 +290,7 @@ app.post('/process-bill', async (req, res) => {
       if (bale2ImageBase64) {
         console.log('📦 Reading bale slips photo 2...');
         const text = await callClaude(
-          'Extract bale data from these handwritten packing slips. The image may be rotated - handle any orientation. Each packing slip has: 1) Bale No (a 4-digit number in a box e.g. 1128, 1127, 1126) 2) Mtrs field showing TOTAL meters for that bale (e.g. 1014, 1038, 1024). ONLY use the TOTAL meters shown next to "Mtrs." - do NOT add up individual piece meters. Extract ALL bales visible regardless of image orientation.',
+          'Extract bale data from these handwritten packing slips. The image may be rotated - handle any orientation. Each packing slip has: 1) Bale No (a 4-digit number in a box e.g. 1128, 1127, 1126 - read each digit carefully, handwritten 1 and 7 are easily confused, as are 2 and 7; the bale numbers on slips from the same batch are usually close together sequentially, so use that as a sanity check) 2) Mtrs field showing TOTAL meters for that bale (e.g. 1014, 1038, 1024). ONLY use the TOTAL meters shown next to "Mtrs." - do NOT add up individual piece meters. Extract ALL bales visible regardless of image orientation.',
           bale2ImageBase64, bale2MediaType, baleSlipSchema
         );
         const data2 = extractJSON(text);
@@ -295,83 +299,130 @@ app.post('/process-bill', async (req, res) => {
       }
     }
 
-    // ── SEND TO MAKE.COM ──
-    console.log(`📊 Sending ${bales.length} bales to Make.com...`);
-    const results = [];
-
-    if (mode === 'bill') {
-      if (bales.length > 0) {
-        // Bilty gave us bale numbers - push one row per bale (meters left empty for later)
-        for (let i = 0; i < bales.length; i++) {
-          const bale = bales[i];
-          const row = parseInt(startRow) + i;
-          const ok = await sendToMake({
-            sheet_name: sheetName, row,
-            bill_date: billData.bill_date||'', bill_no: billData.bill_no||'',
-            party_name: billData.party_name||'', quality: billData.quality||'',
-            bale_no: String(bale.bale_no), meters: '',
-            bilty_no: String(billData.bilty_no||''), total_bales: String(billData.total_bales||''),
-            transporter: billData.transporter||''
-          });
-          results.push({ row, bale_no: bale.bale_no, meters: '—', success: ok });
-          await new Promise(r => setTimeout(r, 500));
-        }
-      } else {
-        // No bale numbers available - one summary row
-        const ok = await sendToMake({
-          sheet_name: sheetName, row: parseInt(startRow),
-          bill_date: billData.bill_date||'', bill_no: billData.bill_no||'',
-          party_name: billData.party_name||'', quality: billData.quality||'',
-          bale_no: '', meters: '',
-          bilty_no: String(billData.bilty_no||''), total_bales: String(billData.total_bales||''),
-          transporter: billData.transporter||''
-        });
-        results.push({ row: parseInt(startRow), bale_no: '—', meters: '—', success: ok });
-      }
-
-    } else if (mode === 'bale') {
-      // FIX #4: Bale-only mode must NOT send blank values for bill-level fields.
-      // Previously this sent bill_date:'', bill_no:'', etc. which, depending on how
-      // the Make.com "Update Row" module maps fields, can overwrite existing bill data
-      // already sitting in that row with blanks. We now omit those keys entirely so
-      // only bale_no/meters/row/sheet_name are in the payload.
-      // NOTE: this alone only fixes the server side. Open your Make.com scenario's
-      // Zoho Sheets "Update Row" module and make sure bill_date/bill_no/party_name/
-      // quality/bilty_no/total_bales/transporter are NOT force-mapped to a blank
-      // variable when the key is missing - unmap them, or use a fallback/"keep
-      // existing value" expression for each, otherwise Make may still write blanks.
-      for (let i = 0; i < bales.length; i++) {
-        const bale = bales[i];
-        const row = parseInt(startRow) + i;
-        const ok = await sendToMake({
-          sheet_name: sheetName, row,
-          bale_no: String(bale.bale_no), meters: String(bale.meters)
-        });
-        results.push({ row, bale_no: bale.bale_no, meters: bale.meters, success: ok });
-        await new Promise(r => setTimeout(r, 500));
-      }
-
-    } else {
-      // Complete or Full - all details per bale
-      for (let i = 0; i < bales.length; i++) {
-        const bale = bales[i];
-        const row = parseInt(startRow) + i;
-        const ok = await sendToMake({
-          sheet_name: sheetName, row,
-          bill_date: billData.bill_date||'', bill_no: billData.bill_no||'',
-          party_name: billData.party_name||'', quality: billData.quality||'',
-          bale_no: String(bale.bale_no), meters: String(bale.meters),
-          bilty_no: String(billData.bilty_no||''), total_bales: String(billData.total_bales||''),
-          transporter: billData.transporter||''
-        });
-        results.push({ row, bale_no: bale.bale_no, meters: bale.meters, success: ok });
-        await new Promise(r => setTimeout(r, 500));
+    // Soft warning only at extraction time (not a hard block) - the review screen
+    // should show this to the user so they can fix it themselves before pushing.
+    // See FIX #6 note in /push-bill below for the hard safety check.
+    let baleCountWarning = null;
+    if ((mode === 'full' || mode === 'bale') && bales.length > 0 && billData.total_bales) {
+      const expectedCount = parseInt(billData.total_bales, 10);
+      if (!isNaN(expectedCount) && bales.length !== expectedCount) {
+        baleCountWarning = `Bilty says ${expectedCount} package(s), but ${bales.length} unique bale numbers were extracted. This usually means a bale number was misread from handwriting - double check the bale numbers below against the original photos before pushing.`;
+        console.log(`⚠️ ${baleCountWarning}`);
       }
     }
 
-    const pushed = results.filter(r => r.success).length;
-    const failed = results.filter(r => !r.success).length;
-    console.log(`✅ Done: ${pushed} pushed, ${failed} failed`);
+    console.log(`📋 [EXTRACT] Done: ${bales.length} bales extracted, ready for review`);
+    res.json({ success: true, mode, sheetName, startRow, billData, bales, warning: baleCountWarning });
+
+  } catch(err) {
+    console.error('❌ Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Shared push logic, used by /push-bill ──
+// mode/sheetName/startRow/billData/bales come straight from the review screen -
+// billData and bales may have been hand-edited by the user before this is called.
+async function pushBillToSheet(mode, sheetName, startRow, billData, bales) {
+  console.log(`📊 [PUSH] Sending ${bales.length} bales to Make.com...`);
+  const results = [];
+
+  if (mode === 'bill') {
+    if (bales.length > 0) {
+      // Bilty gave us bale numbers - push one row per bale (meters left empty for later)
+      for (let i = 0; i < bales.length; i++) {
+        const bale = bales[i];
+        const row = parseInt(startRow) + i;
+        const ok = await sendToMake({
+          sheet_name: sheetName, row,
+          bill_date: billData.bill_date||'', bill_no: billData.bill_no||'',
+          party_name: billData.party_name||'', quality: billData.quality||'',
+          bale_no: String(bale.bale_no), meters: '',
+          bilty_no: String(billData.bilty_no||''), total_bales: String(billData.total_bales||''),
+          transporter: billData.transporter||''
+        });
+        results.push({ row, bale_no: bale.bale_no, meters: '—', success: ok });
+        await new Promise(r => setTimeout(r, 500));
+      }
+    } else {
+      // No bale numbers available - one summary row
+      const ok = await sendToMake({
+        sheet_name: sheetName, row: parseInt(startRow),
+        bill_date: billData.bill_date||'', bill_no: billData.bill_no||'',
+        party_name: billData.party_name||'', quality: billData.quality||'',
+        bale_no: '', meters: '',
+        bilty_no: String(billData.bilty_no||''), total_bales: String(billData.total_bales||''),
+        transporter: billData.transporter||''
+      });
+      results.push({ row: parseInt(startRow), bale_no: '—', meters: '—', success: ok });
+    }
+
+  } else if (mode === 'bale') {
+    // Bale-only mode must NOT send blank values for bill-level fields - omit those
+    // keys entirely so Make.com's Zoho update doesn't blank out existing bill data.
+    for (let i = 0; i < bales.length; i++) {
+      const bale = bales[i];
+      const row = parseInt(startRow) + i;
+      const ok = await sendToMake({
+        sheet_name: sheetName, row,
+        bale_no: String(bale.bale_no), meters: String(bale.meters)
+      });
+      results.push({ row, bale_no: bale.bale_no, meters: bale.meters, success: ok });
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+  } else {
+    // Complete or Full - all details per bale
+    for (let i = 0; i < bales.length; i++) {
+      const bale = bales[i];
+      const row = parseInt(startRow) + i;
+      const ok = await sendToMake({
+        sheet_name: sheetName, row,
+        bill_date: billData.bill_date||'', bill_no: billData.bill_no||'',
+        party_name: billData.party_name||'', quality: billData.quality||'',
+        bale_no: String(bale.bale_no), meters: String(bale.meters),
+        bilty_no: String(billData.bilty_no||''), total_bales: String(billData.total_bales||''),
+        transporter: billData.transporter||''
+      });
+      results.push({ row, bale_no: bale.bale_no, meters: bale.meters, success: ok });
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+
+  const pushed = results.filter(r => r.success).length;
+  const failed = results.filter(r => !r.success).length;
+  console.log(`✅ [PUSH] Done: ${pushed} pushed, ${failed} failed`);
+  return { results, pushed, failed };
+}
+
+// ── STEP 2: PUSH REVIEWED/EDITED DATA ──
+// Call this after the user has reviewed (and possibly corrected) the data returned
+// by /extract-bill. Nothing reaches Zoho until this endpoint is called.
+app.post('/push-bill', async (req, res) => {
+  try {
+    const { mode, sheetName, startRow, billData, bales } = req.body;
+
+    if (!sheetName || !startRow || !mode) {
+      return res.status(400).json({ error: 'Missing required fields: mode, sheetName, startRow' });
+    }
+    if (!Array.isArray(bales)) {
+      return res.status(400).json({ error: '"bales" must be an array (can be empty for bill-only summary row)' });
+    }
+
+    // FIX #6: GUARDRAIL - last check before anything is actually written to the sheet.
+    // If the reviewer pushes without noticing a mismatch (or edited total_bales but
+    // forgot to fix the bale list, or vice versa), stop here rather than write bad data.
+    if ((mode === 'full' || mode === 'bale') && bales.length > 0 && billData?.total_bales) {
+      const expectedCount = parseInt(billData.total_bales, 10);
+      if (!isNaN(expectedCount) && bales.length !== expectedCount) {
+        return res.status(422).json({
+          error: `Bale count mismatch: total_bales is ${expectedCount} but ${bales.length} bale rows are being pushed: ${bales.map(b => `${b.bale_no}${b.meters !== '' ? ' (' + b.meters + 'm)' : ' (no meters)'}`).join(', ')}. Fix total_bales or the bale list, then push again.`,
+          billData, bales
+        });
+      }
+    }
+
+    const { results, pushed, failed } = await pushBillToSheet(mode, sheetName, parseInt(startRow), billData || {}, bales);
 
     res.json({ success: failed === 0, billData, bales, results, pushed, failed, startRow });
 
