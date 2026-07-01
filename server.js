@@ -578,6 +578,23 @@ function formatChallanDate(dateStr) {
 // TEMPORARY DEBUG TOOL - list the first few rows with NO filter at all, to
 // sanity-check whether the API is even looking at the same data you see on
 // screen. Remove once /issue-bales is confirmed working.
+// TEMPORARY DEBUG TOOL - lists every worksheet name/ID exactly as Zoho's API
+// sees them, to compare against the tab names visible in the browser.
+app.get('/debug-zoho-worksheets', async (req, res) => {
+  try {
+    const token = await getZohoAccessToken();
+    const params = new URLSearchParams({ method: 'worksheet.list' });
+    const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
+      method: 'POST',
+      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    });
+    const data = await resp.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/debug-zoho-list', async (req, res) => {
   try {
     const { sheetName, count } = req.body;
