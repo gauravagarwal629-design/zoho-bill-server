@@ -512,11 +512,19 @@ function buildBaleCriteria(billNo, baleNo) {
   return `${billPart}&&${balePart}`;
 }
 
+// Your sheet's real column headers ("Bill No.", "Lot No", etc.) sit on ROW 3 -
+// row 1 is the "60x60 Cotton" title, row 2 is the "Grey Order/Issue Details"
+// section labels. Zoho's Tabular API assumes headers are on row 1 unless told
+// otherwise via header_row - without this, it doesn't recognize any of our
+// column names at all, which is exactly what caused "criteria is not valid".
+const HEADER_ROW = 3;
+
 async function zohoFetchRecords(worksheetName, criteria) {
   const token = await getZohoAccessToken();
   const params = new URLSearchParams({
     method: 'worksheet.records.fetch',
     worksheet_name: worksheetName,
+    header_row: String(HEADER_ROW),
     criteria
   });
   const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
@@ -531,6 +539,7 @@ async function zohoUpdateRecords(worksheetName, criteria, newValues) {
   const params = new URLSearchParams({
     method: 'worksheet.records.update',
     worksheet_name: worksheetName,
+    header_row: String(HEADER_ROW),
     criteria,
     new_values: JSON.stringify(newValues),
     first_match_only: 'true'
