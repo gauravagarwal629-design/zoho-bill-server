@@ -519,14 +519,16 @@ function buildBaleCriteria(billNo, baleNo) {
 // column names at all, which is exactly what caused "criteria is not valid".
 const HEADER_ROW = 3;
 
-async function zohoFetchRecords(worksheetName, criteria) {
+async function zohoFetchRecords(worksheetName, criteria, extraParams = {}) {
   const token = await getZohoAccessToken();
-  const params = new URLSearchParams({
+  const paramObj = {
     method: 'worksheet.records.fetch',
     worksheet_name: worksheetName,
     header_row: String(HEADER_ROW),
-    criteria
-  });
+    ...extraParams
+  };
+  if (criteria) paramObj.criteria = criteria;
+  const params = new URLSearchParams(paramObj);
   const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
     method: 'POST',
     headers: { Authorization: `Zoho-oauthtoken ${token}` }
@@ -573,6 +575,23 @@ function formatChallanDate(dateStr) {
 
 // TEMPORARY DEBUG TOOL - lets us test different Zoho criteria syntax quickly
 // without redeploying between attempts. Remove once /issue-bales is confirmed working.
+// TEMPORARY DEBUG TOOL - list the first few rows with NO filter at all, to
+// sanity-check whether the API is even looking at the same data you see on
+// screen. Remove once /issue-bales is confirmed working.
+app.post('/debug-zoho-list', async (req, res) => {
+  try {
+    const { sheetName, count } = req.body;
+    if (!sheetName) return res.status(400).json({ error: 'Need sheetName' });
+    const result = await zohoFetchRecords(sheetName, null, {
+      records_start_index: '1',
+      count: String(count || 5)
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/debug-zoho-search', async (req, res) => {
   try {
     const { sheetName, criteria } = req.body;
