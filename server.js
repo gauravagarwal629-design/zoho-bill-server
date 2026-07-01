@@ -48,7 +48,27 @@ function expandBaleNumbers(rawList) {
   return expanded;
 }
 
-// FIX #1 (rewritten): Claude 4.6+ models REJECT assistant-turn prefill outright
+// FIX #5: When bill+bilty+bale-slips run together, the bilty step creates bale
+// entries first (numbers only, meters empty), then the bale-slip step used to
+// blindly APPEND its results on top - producing duplicate entries for the same
+// bale number (one with empty meters from bilty, one with real meters from the
+// slip). This merges by bale_no instead: if the number already exists, fill in
+// its meters; only append a new row if the number genuinely wasn't there yet.
+function mergeBales(existing, incoming) {
+  const result = existing.map(b => ({ ...b, bale_no: String(b.bale_no).trim() }));
+  for (const nb of incoming) {
+    const key = String(nb.bale_no).trim();
+    const idx = result.findIndex(b => b.bale_no === key);
+    if (idx >= 0) {
+      result[idx] = { ...result[idx], meters: nb.meters };
+    } else {
+      result.push({ bale_no: key, meters: nb.meters });
+    }
+  }
+  return result;
+}
+
+
 // ("This model does not support assistant message prefill"). The old '{' prefill
 // trick is dead. The correct, GA replacement is Structured Outputs: pass a JSON
 // Schema via output_config.format and the API grammar-constrains the response to
@@ -258,7 +278,7 @@ app.post('/process-bill', async (req, res) => {
           baleImageBase64, baleMediaType, baleSlipSchema
         );
         const data1 = extractJSON(text);
-        bales = [...bales, ...(data1.bales || [])];
+        bales = mergeBales(bales, data1.bales || []);
         console.log(`✅ Bale slip 1: ${data1.bales?.length || 0} bales`);
       }
 
@@ -270,7 +290,7 @@ app.post('/process-bill', async (req, res) => {
           bale2ImageBase64, bale2MediaType, baleSlipSchema
         );
         const data2 = extractJSON(text);
-        bales = [...bales, ...(data2.bales || [])];
+        bales = mergeBales(bales, data2.bales || []);
         console.log(`✅ Bale slip 2: ${data2.bales?.length || 0} bales`);
       }
     }
