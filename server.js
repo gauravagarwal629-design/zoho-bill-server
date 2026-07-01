@@ -622,19 +622,44 @@ app.post('/debug-zoho-write', async (req, res) => {
       return res.status(400).json({ error: 'Need sheetName, row, column, data' });
     }
     const token = await getZohoAccessToken();
-    const params = new URLSearchParams({
-      method: 'worksheet.range.contents.set',
-      worksheet_name: sheetName,
-      row: String(row),
-      column: String(column),
-      data: String(data)
-    });
-    const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
-      method: 'POST',
-      headers: { Authorization: `Zoho-oauthtoken ${token}` }
-    });
-    const result = await resp.json();
-    res.json(result);
+
+    // Try several plausible method names for "Set content to a row" - stop at
+    // the first one that isn't rejected as "method not supported" (2867).
+    const candidates = [
+      'worksheet.range.contents.set',
+      'worksheet.range.contents.update',
+      'worksheet.range.set',
+      'worksheet.rangedata.set',
+      'range.contents.set',
+      'range.set',
+      'worksheet.data.set',
+      'setContentToRange'
+    ];
+
+    const attempts = [];
+    for (const method of candidates) {
+      const params = new URLSearchParams({
+        method,
+        worksheet_name: sheetName,
+        row: String(row),
+        column: String(column),
+        data: String(data)
+      });
+      const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
+        method: 'POST',
+        headers: { Authorization: `Zoho-oauthtoken ${token}` }
+      });
+      const result = await resp.json();
+      attempts.push({ method, result });
+      // Stop early if this one worked, or if it failed for a DIFFERENT reason
+      // than "method not supported" (meaning the method name itself was valid).
+      if (result.status === 'success' || result.error_code !== 2867) {
+        break;
+      }
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    res.json({ attempts });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
