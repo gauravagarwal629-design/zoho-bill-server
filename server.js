@@ -623,43 +623,23 @@ app.post('/debug-zoho-write', async (req, res) => {
     }
     const token = await getZohoAccessToken();
 
-    // Try several plausible method names for "Set content to a row" - stop at
-    // the first one that isn't rejected as "method not supported" (2867).
-    const candidates = [
-      'worksheet.range.contents.set',
-      'worksheet.range.contents.update',
-      'worksheet.range.set',
-      'worksheet.rangedata.set',
-      'range.contents.set',
-      'range.set',
-      'worksheet.data.set',
-      'setContentToRange'
-    ];
+    // Confirmed via Zoho's Deluge docs (zoho.sheet.insertCSV success response
+    // literally shows "method": "worksheet.csvdata.set"). Parameter is named
+    // csv_data, not "data".
+    const params = new URLSearchParams({
+      method: 'worksheet.csvdata.set',
+      worksheet_name: sheetName,
+      row: String(row),
+      column: String(column),
+      csv_data: String(data)
+    });
+    const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
+      method: 'POST',
+      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    });
+    const result = await resp.json();
+    res.json(result);
 
-    const attempts = [];
-    for (const method of candidates) {
-      const params = new URLSearchParams({
-        method,
-        worksheet_name: sheetName,
-        row: String(row),
-        column: String(column),
-        data: String(data)
-      });
-      const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
-        method: 'POST',
-        headers: { Authorization: `Zoho-oauthtoken ${token}` }
-      });
-      const result = await resp.json();
-      attempts.push({ method, result });
-      // Stop early if this one worked, or if it failed for a DIFFERENT reason
-      // than "method not supported" (meaning the method name itself was valid).
-      if (result.status === 'success' || result.error_code !== 2867) {
-        break;
-      }
-      await new Promise(r => setTimeout(r, 300));
-    }
-
-    res.json({ attempts });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
