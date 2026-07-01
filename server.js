@@ -468,5 +468,167 @@ app.post('/push-bill', async (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════════════════════════════
+// ISSUE MODE — direct Zoho Sheets API (search-by-criteria + update)
+// Separate from everything above: no Claude/photo involved. Takes typed
+// bale/bill numbers + challan info, finds each row via Zoho's Tabular Data
+// API, and updates the Grey Issue Details columns (R-V) on that exact row.
+// ══════════════════════════════════════════════════════════════════
+
+const ZOHO_ACCOUNTS_BASE = 'https://accounts.zoho.in';
+const ZOHO_SHEET_API_BASE = 'https://sheet.zoho.in/api/v2';
+const ZOHO_WORKBOOK_ID = process.env.ZOHO_WORKBOOK_ID || 'es1v56fd6be6434de4d9e98bd990c2858c394';
+
+let zohoTokenCache = { accessToken: null, expiresAt: 0 };
+
+async function getZohoAccessToken() {
+  if (zohoTokenCache.accessToken && Date.now() < zohoTokenCache.expiresAt) {
+    return zohoTokenCache.accessToken;
+  }
+  const params = new URLSearchParams({
+    grant_type: 'refresh_token',
+    client_id: process.env.ZOHO_CLIENT_ID,
+    client_secret: process.env.ZOHO_CLIENT_SECRET,
+    refresh_token: process.env.ZOHO_REFRESH_TOKEN
+  });
+  const resp = await fetch(`${ZOHO_ACCOUNTS_BASE}/oauth/v2/token?${params.toString()}`, { method: 'POST' });
+  const data = await resp.json();
+  if (!data.access_token) throw new Error('Zoho token refresh failed: ' + JSON.stringify(data));
+  // Refresh 2 minutes early so we never hand out a token that's about to expire mid-request
+  zohoTokenCache = { accessToken: data.access_token, expiresAt: Date.now() + (data.expires_in - 120) * 1000 };
+  return zohoTokenCache.accessToken;
+}
+
+function escapeCriteriaValue(val) {
+  return String(val).replace(/"/g, '\\"');
+}
+
+// Bill No. is always text (values like "580/GST" as well as plain "807"), so
+// always quote it. Lot No is a plain number in every example we've seen, so
+// left unquoted for a numeric match.
+function buildBaleCriteria(billNo, baleNo) {
+  const billPart = `"Bill No."="${escapeCriteriaValue(billNo)}"`;
+  const balePart = `"Lot No"=${Number(baleNo)}`;
+  return `${billPart}&&${balePart}`;
+}
+
+async function zohoFetchRecords(worksheetName, criteria) {
+  const token = await getZohoAccessToken();
+  const params = new URLSearchParams({
+    method: 'worksheet.records.fetch',
+    worksheet_name: worksheetName,
+    criteria
+  });
+  const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
+    method: 'POST',
+    headers: { Authorization: `Zoho-oauthtoken ${token}` }
+  });
+  return resp.json();
+}
+
+async function zohoUpdateRecords(worksheetName, criteria, newValues) {
+  const token = await getZohoAccessToken();
+  const params = new URLSearchParams({
+    method: 'worksheet.records.update',
+    worksheet_name: worksheetName,
+    criteria,
+    new_values: JSON.stringify(newValues),
+    first_match_only: 'true'
+  });
+  const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
+    method: 'POST',
+    headers: { Authorization: `Zoho-oauthtoken ${token}` }
+  });
+  return resp.json();
+}
+
+// Indian financial year: April to March. "24-Jun-2026" -> FY 2026-27 -> "26-27"
+function computeFinancialYear(dateStr) {
+  const d = new Date(dateStr);
+  const month = d.getMonth() + 1;
+  const year = d.getFullYear();
+  const fyStart = month >= 4 ? year : year - 1;
+  const fyEnd = fyStart + 1;
+  return `${String(fyStart).slice(-2)}-${String(fyEnd).slice(-2)}`;
+}
+
+// HTML date input gives "YYYY-MM-DD" - convert to the sheet's "DD-Mon-YY" format
+function formatChallanDate(dateStr) {
+  const d = new Date(dateStr);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mon = months[d.getMonth()];
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}-${mon}-${yy}`;
+}
+
+app.post('/issue-bales', async (req, res) => {
+  try {
+    const { sheetName, challanDate, challanNo, partyName, bales } = req.body;
+
+    if (!sheetName || !challanDate || !challanNo || !partyName) {
+      return res.status(400).json({ error: 'Missing required fields: sheetName, challanDate, challanNo, partyName' });
+    }
+    if (!Array.isArray(bales) || bales.length === 0) {
+      return res.status(400).json({ error: '"bales" must be a non-empty array of { billNo, baleNo }' });
+    }
+
+    const formattedDate = formatChallanDate(challanDate);
+    const fy = computeFinancialYear(challanDate);
+    const slipNo = `${challanNo}/${fy}`;
+
+    const results = [];
+
+    for (const { billNo, baleNo } of bales) {
+      const criteria = buildBaleCriteria(billNo, baleNo);
+      console.log(`🔍 Searching ${sheetName} for: ${criteria}`);
+
+      // Step 1: find the row, so we know its existing Lot Mtr to copy into Challan Mtr
+      const fetchResult = await zohoFetchRecords(sheetName, criteria);
+
+      if (fetchResult.status !== 'success' || !fetchResult.records || fetchResult.records.length === 0) {
+        results.push({ billNo, baleNo, success: false, error: 'No matching row found for this Bill No. + Lot No combination', raw: fetchResult });
+        continue;
+      }
+      if (fetchResult.records.length > 1) {
+        results.push({ billNo, baleNo, success: false, error: `Found ${fetchResult.records.length} matching rows - expected exactly 1, skipped to avoid updating the wrong one`, raw: fetchResult });
+        continue;
+      }
+
+      const matchedRow = fetchResult.records[0];
+      const lotMtr = matchedRow['Lot Mtr.'] ?? matchedRow['Lot Mtr'];
+
+      // Step 2: write the Grey Issue Details columns for that exact row
+      const updateResult = await zohoUpdateRecords(sheetName, criteria, {
+        'Challan Date': formattedDate,
+        'Challan No': challanNo,
+        'Party Name': partyName,
+        'Challan Mtr': lotMtr,
+        'Slip No': slipNo
+      });
+
+      results.push({
+        billNo, baleNo,
+        success: updateResult.status === 'success',
+        rowIndex: matchedRow.row_index,
+        meters: lotMtr,
+        raw: updateResult
+      });
+
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    const succeeded = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+
+    console.log(`✅ Issue done: ${succeeded} succeeded, ${failed} failed`);
+    res.json({ success: failed === 0, sheetName, challanDate: formattedDate, challanNo, partyName, slipNo, results, succeeded, failed });
+
+  } catch (err) {
+    console.error('❌ Issue error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
