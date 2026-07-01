@@ -593,7 +593,7 @@ app.post('/debug-zoho-find', async (req, res) => {
     const paramObj = {
       method: 'find',
       scope: columnIndex ? 'column' : 'worksheet',
-      search_text: String(searchText),
+      search: String(searchText),
       worksheet_name: sheetName
     };
     if (columnIndex) paramObj.column_index = String(columnIndex);
