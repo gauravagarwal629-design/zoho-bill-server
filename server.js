@@ -123,7 +123,7 @@ const biltySchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    bilty_no: { type: 'string', description: 'Digits only, no letter prefix, no suffix' },
+    bilty_no: { type: 'string', description: 'The number stamped or handwritten specifically inside the box labeled OFFICE USE ONLY, near the Actual/Charged weight fields. NOT any pre-printed serial number found elsewhere on the form (such as a printed reference number in a header or corner) - that is just the booklet stationery number, not the actual bilty number.' },
     total_bales: { type: 'string' },
     transporter: { type: 'string' },
     bale_numbers: {
@@ -233,7 +233,7 @@ app.post('/process-bill', async (req, res) => {
     if (biltyImageBase64) {
       console.log('🚛 Reading bilty (this OVERRIDES bill data for transport fields)...');
       const text = await callClaude(
-        'This is a photo of a physical Bilty / LR (Lorry Receipt) document issued by a transport company (could be in any orientation, even sideways or upside down - read carefully). This document is the SOURCE OF TRUTH for transport details. Extract: bilty_no (the bilty/LR/GR number - look for a field labeled No. or GR No. or similar, often a 6-digit number, sometimes preceded by a single letter like J - extract ONLY the digits, no letter prefix, no suffix), total_bales (the number written in the No. of Packages field, could be written as a word like Five = 5), transporter (the transport company name from the letterhead/logo at top, e.g. Shree Ram Roadways), and bale_numbers (every individual bale number from the Private Mark field - it often contains a handwritten range like "1012 TO 1016" or "1012-1016", which must be expanded into every individual number 1012,1013,1014,1015,1016 as separate array items, not left as a range).',
+        'This is a photo of a physical Bilty / LR (Lorry Receipt) document issued by a transport company (could be in any orientation, even sideways or upside down - read carefully). This document is the SOURCE OF TRUTH for transport details. Extract: bilty_no - CRITICAL: this is the number stamped (often in red ink) or handwritten specifically INSIDE the box labeled "OFFICE USE ONLY", which sits near the Actual/Charged weight fields. It is usually 5-6 digits. Every LR form also has a separate PRE-PRINTED serial number somewhere in the header or corner of the page (part of the printed stationery/booklet itself) - this is NOT the bilty_no, ignore it completely even though it may look more prominent or "official". Only use the number that is physically stamped or written inside the OFFICE USE ONLY box. Also extract: total_bales (the number written in the No. of Packages field, could be written as a word like Five = 5), transporter (the transport company name from the letterhead/logo at top, e.g. Shree Ram Roadways), and bale_numbers (every individual bale number from the Private Mark field - it often contains a handwritten range like "1012 TO 1016" or "1012-1016", which must be expanded into every individual number 1012,1013,1014,1015,1016 as separate array items, not left as a range).',
         biltyImageBase64, biltyMediaType, biltySchema
       );
       const biltyData = extractJSON(text);
