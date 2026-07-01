@@ -585,18 +585,22 @@ function formatChallanDate(dateStr) {
 // NOT stop at blank rows, since it isn't trying to treat the sheet as one table.
 app.post('/debug-zoho-find', async (req, res) => {
   try {
-    const { sheetName, searchText, columnIndex } = req.body;
+    const { sheetName, searchText, columnIndex, rowIndex } = req.body;
     if (!sheetName || !searchText) {
       return res.status(400).json({ error: 'Need sheetName and searchText' });
     }
     const token = await getZohoAccessToken();
+    let scope = 'worksheet';
+    if (rowIndex) scope = 'row';
+    else if (columnIndex) scope = 'column';
     const paramObj = {
       method: 'find',
-      scope: columnIndex ? 'column' : 'worksheet',
+      scope,
       search: String(searchText),
       worksheet_name: sheetName
     };
     if (columnIndex) paramObj.column = String(columnIndex);
+    if (rowIndex) paramObj.row = String(rowIndex);
     const params = new URLSearchParams(paramObj);
     const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
       method: 'POST',
