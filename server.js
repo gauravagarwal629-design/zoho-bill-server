@@ -596,7 +596,7 @@ app.post('/debug-zoho-find', async (req, res) => {
       search: String(searchText),
       worksheet_name: sheetName
     };
-    if (columnIndex) paramObj.column_index = String(columnIndex);
+    if (columnIndex) paramObj.column = String(columnIndex);
     const params = new URLSearchParams(paramObj);
     const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
       method: 'POST',
