@@ -562,6 +562,22 @@ function formatChallanDate(dateStr) {
   return `${dd}-${mon}-${yy}`;
 }
 
+// TEMPORARY DEBUG TOOL - lets us test different Zoho criteria syntax quickly
+// without redeploying between attempts. Remove once /issue-bales is confirmed working.
+app.post('/debug-zoho-search', async (req, res) => {
+  try {
+    const { sheetName, criteria } = req.body;
+    if (!sheetName || !criteria) {
+      return res.status(400).json({ error: 'Need both sheetName and criteria' });
+    }
+    console.log(`🔍 DEBUG search: worksheet="${sheetName}" criteria=${criteria}`);
+    const result = await zohoFetchRecords(sheetName, criteria);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/issue-bales', async (req, res) => {
   try {
     const { sheetName, challanDate, challanNo, partyName, bales } = req.body;
