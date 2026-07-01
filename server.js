@@ -613,6 +613,33 @@ app.post('/debug-zoho-find', async (req, res) => {
   }
 });
 
+// TEMPORARY DEBUG TOOL - test the write method against a SAFE unused cell
+// (defaults to row 5000, far from any real data) before trusting it near real rows.
+app.post('/debug-zoho-write', async (req, res) => {
+  try {
+    const { sheetName, row, column, data } = req.body;
+    if (!sheetName || !row || !column || !data) {
+      return res.status(400).json({ error: 'Need sheetName, row, column, data' });
+    }
+    const token = await getZohoAccessToken();
+    const params = new URLSearchParams({
+      method: 'worksheet.range.contents.set',
+      worksheet_name: sheetName,
+      row: String(row),
+      column: String(column),
+      data: String(data)
+    });
+    const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
+      method: 'POST',
+      headers: { Authorization: `Zoho-oauthtoken ${token}` }
+    });
+    const result = await resp.json();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/debug-zoho-worksheets', async (req, res) => {
   try {
     const token = await getZohoAccessToken();
