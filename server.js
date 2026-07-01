@@ -645,6 +645,40 @@ app.post('/debug-zoho-write', async (req, res) => {
   }
 });
 
+// TEMPORARY DEBUG TOOL - test reading a range, guessing the symmetric method
+// name to the CONFIRMED write method (worksheet.csvdata.set).
+app.post('/debug-zoho-read', async (req, res) => {
+  try {
+    const { sheetName, row, column, count } = req.body;
+    if (!sheetName || !row || !column) {
+      return res.status(400).json({ error: 'Need sheetName, row, column' });
+    }
+    const token = await getZohoAccessToken();
+    const candidates = ['worksheet.csvdata.get', 'worksheet.range.get', 'worksheet.data.get'];
+    const attempts = [];
+    for (const method of candidates) {
+      const params = new URLSearchParams({
+        method,
+        worksheet_name: sheetName,
+        row: String(row),
+        column: String(column),
+        count: String(count || 1)
+      });
+      const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
+        method: 'POST',
+        headers: { Authorization: `Zoho-oauthtoken ${token}` }
+      });
+      const result = await resp.json();
+      attempts.push({ method, result });
+      if (result.status === 'success' || result.error_code !== 2867) break;
+      await new Promise(r => setTimeout(r, 300));
+    }
+    res.json({ attempts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/debug-zoho-worksheets', async (req, res) => {
   try {
     const token = await getZohoAccessToken();
