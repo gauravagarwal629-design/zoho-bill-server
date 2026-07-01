@@ -499,35 +499,13 @@ async function getZohoAccessToken() {
   return zohoTokenCache.accessToken;
 }
 
-function escapeCriteriaValue(val) {
-  return String(val).replace(/"/g, '\\"');
-}
-
-// Bill No. is always text (values like "580/GST" as well as plain "807"), so
-// always quote it. Lot No is a plain number in every example we've seen, so
-// left unquoted for a numeric match.
-function buildBaleCriteria(billNo, baleNo) {
-  const billPart = `"Bill No."="${escapeCriteriaValue(billNo)}"`;
-  const balePart = `"Lot No"=${Number(baleNo)}`;
-  return `${billPart}&&${balePart}`;
-}
-
-// Your sheet's real column headers ("Bill No.", "Lot No", etc.) sit on ROW 3 -
-// row 1 is the "60x60 Cotton" title, row 2 is the "Grey Order/Issue Details"
-// section labels. Zoho's Tabular API assumes headers are on row 1 unless told
-// otherwise via header_row - without this, it doesn't recognize any of our
-// column names at all, which is exactly what caused "criteria is not valid".
-const HEADER_ROW = 3;
-
-async function zohoFetchRecords(worksheetName, criteria, extraParams = {}) {
+// Searches for text within the given scope. Unlike the Tabular API, find does
+// NOT stop at blank rows - it genuinely searches the whole worksheet.
+async function zohoFindCells(worksheetName, searchText, scope, extra = {}) {
   const token = await getZohoAccessToken();
-  const paramObj = {
-    method: 'worksheet.records.fetch',
-    worksheet_name: worksheetName,
-    header_row: String(HEADER_ROW),
-    ...extraParams
-  };
-  if (criteria) paramObj.criteria = criteria;
+  const paramObj = { method: 'find', scope, search: String(searchText), worksheet_name: worksheetName };
+  if (extra.column) paramObj.column = String(extra.column);
+  if (extra.row) paramObj.row = String(extra.row);
   const params = new URLSearchParams(paramObj);
   const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
     method: 'POST',
@@ -536,24 +514,50 @@ async function zohoFetchRecords(worksheetName, criteria, extraParams = {}) {
   return resp.json();
 }
 
-async function zohoUpdateRecords(worksheetName, criteria, newValues) {
-  const token = await getZohoAccessToken();
-  const params = new URLSearchParams({
-    method: 'worksheet.records.update',
-    worksheet_name: worksheetName,
-    header_row: String(HEADER_ROW),
-    criteria,
-    new_values: JSON.stringify(newValues),
-    first_match_only: 'true'
-  });
-  const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
-    method: 'POST',
-    headers: { Authorization: `Zoho-oauthtoken ${token}` }
-  });
-  return resp.json();
+// CSV-escapes a field for use in worksheet.csvdata.set's data parameter.
+function csvEscape(val) {
+  const s = String(val);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
 }
 
-// Indian financial year: April to March. "24-Jun-2026" -> FY 2026-27 -> "26-27"
+const LOT_NO_COLUMN = 12;        // L - Lot No (bale number)
+const BILL_NO_COLUMN = 9;        // I - Bill No.
+const CHALLAN_START_COLUMN = 18; // R - first Grey Issue Details column
+
+// Finds the exact row for a given Bill No. + Lot No (bale number) combination.
+// Step 1: search column L for the bale number (works across blank-row gaps).
+// Step 2: for each candidate row, verify column I on that SAME row matches the
+// bill number - this is what protects against bale numbers that repeat across
+// different bills (a real case we found in this sheet).
+async function findConfirmedRow(sheetName, billNo, baleNo) {
+  const baleSearch = await zohoFindCells(sheetName, baleNo, 'column', { column: LOT_NO_COLUMN });
+  if (baleSearch.status !== 'success' || !baleSearch.cells || baleSearch.cells.length === 0) {
+    return { error: `Bale ${baleNo} not found in ${sheetName} (searched Lot No column)` };
+  }
+
+  const confirmedRows = [];
+  for (const cell of baleSearch.cells) {
+    const billSearch = await zohoFindCells(sheetName, billNo, 'row', { row: cell.row_index });
+    if (billSearch.status === 'success' && billSearch.cells) {
+      const match = billSearch.cells.find(c => c.column_index === BILL_NO_COLUMN);
+      if (match) confirmedRows.push(cell.row_index);
+    }
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  if (confirmedRows.length === 0) {
+    return { error: `Bale ${baleNo} exists, but no row has Bill No. = "${billNo}" - double check the bill number` };
+  }
+  if (confirmedRows.length > 1) {
+    return { error: `Ambiguous: bale ${baleNo} + bill ${billNo} matched ${confirmedRows.length} rows (${confirmedRows.join(', ')}) - likely a duplicate entry in the sheet, please check manually` };
+  }
+  return { rowIndex: confirmedRows[0] };
+}
+
+// Indian financial year: April to March. "2026-06-24" -> FY 2026-27 -> "26-27"
 function computeFinancialYear(dateStr) {
   const d = new Date(dateStr);
   const month = d.getMonth() + 1;
@@ -694,34 +698,6 @@ app.get('/debug-zoho-worksheets', async (req, res) => {
   }
 });
 
-app.post('/debug-zoho-list', async (req, res) => {
-  try {
-    const { sheetName, count } = req.body;
-    if (!sheetName) return res.status(400).json({ error: 'Need sheetName' });
-    const result = await zohoFetchRecords(sheetName, null, {
-      records_start_index: '1',
-      count: String(count || 5)
-    });
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/debug-zoho-search', async (req, res) => {
-  try {
-    const { sheetName, criteria } = req.body;
-    if (!sheetName || !criteria) {
-      return res.status(400).json({ error: 'Need both sheetName and criteria' });
-    }
-    console.log(`🔍 DEBUG search: worksheet="${sheetName}" criteria=${criteria}`);
-    const result = await zohoFetchRecords(sheetName, criteria);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 app.post('/issue-bales', async (req, res) => {
   try {
     const { sheetName, challanDate, challanNo, partyName, bales } = req.body;
@@ -740,39 +716,46 @@ app.post('/issue-bales', async (req, res) => {
     const results = [];
 
     for (const { billNo, baleNo } of bales) {
-      const criteria = buildBaleCriteria(billNo, baleNo);
-      console.log(`🔍 Searching ${sheetName} for: ${criteria}`);
+      console.log(`🔍 Locating bill ${billNo} + bale ${baleNo} in ${sheetName}...`);
+      const found = await findConfirmedRow(sheetName, billNo, baleNo);
 
-      // Step 1: find the row, so we know its existing Lot Mtr to copy into Challan Mtr
-      const fetchResult = await zohoFetchRecords(sheetName, criteria);
-
-      if (fetchResult.status !== 'success' || !fetchResult.records || fetchResult.records.length === 0) {
-        results.push({ billNo, baleNo, success: false, error: 'No matching row found for this Bill No. + Lot No combination', raw: fetchResult });
-        continue;
-      }
-      if (fetchResult.records.length > 1) {
-        results.push({ billNo, baleNo, success: false, error: `Found ${fetchResult.records.length} matching rows - expected exactly 1, skipped to avoid updating the wrong one`, raw: fetchResult });
+      if (found.error) {
+        results.push({ billNo, baleNo, success: false, error: found.error });
         continue;
       }
 
-      const matchedRow = fetchResult.records[0];
-      const lotMtr = matchedRow['Lot Mtr.'] ?? matchedRow['Lot Mtr'];
+      const rowIndex = found.rowIndex;
 
-      // Step 2: write the Grey Issue Details columns for that exact row
-      const updateResult = await zohoUpdateRecords(sheetName, criteria, {
-        'Challan Date': formattedDate,
-        'Challan No': challanNo,
-        'Party Name': partyName,
-        'Challan Mtr': lotMtr,
-        'Slip No': slipNo
+      // Write Challan Date, Challan No, Party Name, Challan Mtr, Slip No (columns
+      // R-V) in one call. Challan Mtr is written as a formula referencing this
+      // same row's own Lot Mtr (column M) - Zoho evaluates it live, so we never
+      // need a separate "read" step to know the value ahead of time.
+      const csvRow = [
+        csvEscape(formattedDate),
+        csvEscape(challanNo),
+        csvEscape(partyName),
+        `=M${rowIndex}`,
+        csvEscape(slipNo)
+      ].join(',');
+
+      const token = await getZohoAccessToken();
+      const params = new URLSearchParams({
+        method: 'worksheet.csvdata.set',
+        worksheet_name: sheetName,
+        row: String(rowIndex),
+        column: String(CHALLAN_START_COLUMN),
+        data: csvRow
       });
+      const resp = await fetch(`${ZOHO_SHEET_API_BASE}/${ZOHO_WORKBOOK_ID}?${params.toString()}`, {
+        method: 'POST',
+        headers: { Authorization: `Zoho-oauthtoken ${token}` }
+      });
+      const writeResult = await resp.json();
 
       results.push({
-        billNo, baleNo,
-        success: updateResult.status === 'success',
-        rowIndex: matchedRow.row_index,
-        meters: lotMtr,
-        raw: updateResult
+        billNo, baleNo, rowIndex,
+        success: writeResult.status === 'success',
+        error: writeResult.status !== 'success' ? writeResult.error_message : undefined
       });
 
       await new Promise(r => setTimeout(r, 300));
