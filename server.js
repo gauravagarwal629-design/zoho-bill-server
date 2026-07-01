@@ -157,29 +157,55 @@ const baleSlipSchema = {
 };
 
 
-async function callClaude(prompt, imageBase64, mediaType, schema) {
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6', max_tokens: 2000,
-      system: 'You are a precise document data extraction API for textile/fabric trade documents.',
-      messages: [
-        { role: 'user', content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 } },
-          { type: 'text', text: prompt }
-        ]}
-      ],
-      output_config: {
-        format: { type: 'json_schema', schema }
-      }
-    })
-  });
-  const data = await resp.json();
-  if (!data.content) throw new Error('Claude failed: ' + JSON.stringify(data));
-  const textBlock = data.content.find(c => c.type === 'text');
-  if (!textBlock) throw new Error('Claude returned no text block: ' + JSON.stringify(data));
-  return textBlock.text;
+// FIX #7: Anthropic's API occasionally returns a transient "overloaded_error"
+// (HTTP 529) or rate-limit error when their servers are under heavy load - this
+// is not a bug in the request, it's momentary capacity on Anthropic's side. The
+// old code threw immediately on any error, killing the whole extraction and
+// forcing a manual retry. Now transient errors get retried automatically with
+// exponential backoff before giving up.
+function isTransientClaudeError(resp, data) {
+  const errType = data?.error?.type;
+  return errType === 'overloaded_error' || errType === 'rate_limit_error' || resp.status === 529 || resp.status === 429 || resp.status >= 500;
+}
+
+async function callClaude(prompt, imageBase64, mediaType, schema, maxRetries = 4) {
+  let lastData, lastResp;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6', max_tokens: 2000,
+        system: 'You are a precise document data extraction API for textile/fabric trade documents.',
+        messages: [
+          { role: 'user', content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 } },
+            { type: 'text', text: prompt }
+          ]}
+        ],
+        output_config: {
+          format: { type: 'json_schema', schema }
+        }
+      })
+    });
+    const data = await resp.json();
+
+    if (data.content) {
+      const textBlock = data.content.find(c => c.type === 'text');
+      if (!textBlock) throw new Error('Claude returned no text block: ' + JSON.stringify(data));
+      return textBlock.text;
+    }
+
+    lastData = data; lastResp = resp;
+    if (isTransientClaudeError(resp, data) && attempt < maxRetries) {
+      const delay = Math.min(1000 * Math.pow(2, attempt), 16000) + Math.floor(Math.random() * 500);
+      console.log(`⏳ Claude API transient error (${data.error?.type || resp.status}), retry ${attempt + 1}/${maxRetries} in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+      continue;
+    }
+    break; // non-transient error, or retries exhausted
+  }
+  throw new Error('Claude failed: ' + JSON.stringify(lastData));
 }
 
 async function sendToMake(payload) {
