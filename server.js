@@ -590,8 +590,8 @@ function formatChallanDate(dateStr) {
 app.post('/debug-zoho-find', async (req, res) => {
   try {
     const { sheetName, searchText, columnIndex, rowIndex } = req.body;
-    if (!sheetName || !searchText) {
-      return res.status(400).json({ error: 'Need sheetName and searchText' });
+    if (!sheetName || searchText === undefined || searchText === null) {
+      return res.status(400).json({ error: 'Need sheetName and searchText (can be empty string)' });
     }
     const token = await getZohoAccessToken();
     let scope = 'worksheet';
