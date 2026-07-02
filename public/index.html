@@ -71,24 +71,42 @@ textarea:focus { outline: none; border-color: #1a237e; }
 /* Printable documents - hidden on screen, shown only via window.print() */
 .print-doc { display: none; }
 @media print {
+  @page { margin: 14mm; }
   body * { visibility: hidden; }
   .print-doc.active, .print-doc.active * { visibility: visible; }
-  .print-doc.active { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 20px; }
+  .print-doc.active { display: block; position: absolute; top: 0; left: 0; width: 100%; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
-.pd-header { text-align: center; margin-bottom: 16px; }
-.pd-header .gst { display: flex; justify-content: space-between; font-size: 0.8rem; }
-.pd-header h1 { font-size: 1.8rem; font-family: Georgia, serif; margin: 6px 0; }
-.pd-header .tag { font-size: 0.8rem; text-decoration: underline; }
-.pd-header .title { font-weight: 700; margin-top: 8px; font-size: 0.95rem; }
-.pd-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 0.85rem; }
-.pd-table th, .pd-table td { border: 1px solid #333; padding: 7px 10px; text-align: center; }
-.pd-table th { background: #eee; }
-.pd-meta { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #333; margin-top: 14px; font-size: 0.85rem; }
-.pd-meta > div { padding: 8px 12px; border-bottom: 1px solid #333; }
-.pd-meta .full { grid-column: 1 / 3; }
-.pd-sign { display: flex; justify-content: space-between; margin-top: 40px; font-size: 0.85rem; }
-.pd-letter { font-size: 0.9rem; line-height: 1.8; margin-top: 20px; }
-.pd-letter .lbl { font-weight: 700; }
+
+.pd-frame { border: 2px solid #1a237e; padding: 22px 28px; font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a; }
+.pd-topline { display: flex; justify-content: space-between; font-size: 0.72rem; font-family: 'Segoe UI', sans-serif; letter-spacing: 0.3px; color: #444; padding-bottom: 8px; border-bottom: 1px solid #1a237e; }
+.pd-brand { text-align: center; padding: 14px 0 10px; }
+.pd-brand .crest { font-size: 0.65rem; letter-spacing: 4px; color: #1a237e; font-family: 'Segoe UI', sans-serif; font-weight: 700; margin-bottom: 4px; }
+.pd-brand h1 { font-size: 2.1rem; letter-spacing: 2px; color: #1a237e; font-weight: 400; }
+.pd-brand .tag { font-size: 0.75rem; letter-spacing: 1px; margin-top: 4px; font-style: italic; color: #555; }
+.pd-rule { border: none; border-top: 2px solid #1a237e; margin: 10px 0; }
+.pd-rule.thin { border-top: 1px solid #9fa8da; margin: 6px 0 14px; }
+.pd-doctitle { text-align: center; font-family: 'Segoe UI', sans-serif; font-size: 0.95rem; font-weight: 700; letter-spacing: 3px; color: #1a237e; margin: 10px 0 16px; text-transform: uppercase; }
+
+.pd-meta { display: grid; grid-template-columns: 1fr 1fr; font-family: 'Segoe UI', sans-serif; font-size: 0.84rem; margin-bottom: 16px; border: 1px solid #c5cae9; border-radius: 6px; overflow: hidden; }
+.pd-meta > div { padding: 9px 14px; border-bottom: 1px solid #e8eaf6; }
+.pd-meta > div:nth-child(odd) { border-right: 1px solid #e8eaf6; }
+.pd-meta .full { grid-column: 1 / 3; border-right: none; }
+.pd-meta .lbl { display: block; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.8px; color: #7986cb; font-weight: 700; margin-bottom: 2px; }
+.pd-meta .val { font-weight: 700; color: #1a237e; }
+
+.pd-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-family: 'Segoe UI', sans-serif; font-size: 0.85rem; }
+.pd-table th { background: #1a237e; color: white; padding: 9px 10px; text-align: center; font-size: 0.72rem; letter-spacing: 0.5px; text-transform: uppercase; }
+.pd-table td { border: 1px solid #dcdff0; padding: 8px 10px; text-align: center; }
+.pd-table tbody tr:nth-child(even) { background: #f5f6fc; }
+.pd-table tfoot td { border-top: 2px solid #1a237e; font-weight: 700; background: #e8eaf6; padding: 10px; }
+
+.pd-sign { display: flex; justify-content: space-between; margin-top: 50px; font-family: 'Segoe UI', sans-serif; font-size: 0.82rem; }
+.pd-sign > div { border-top: 1px solid #666; padding-top: 6px; width: 44%; text-align: center; color: #444; }
+
+.pd-letter { font-family: 'Segoe UI', sans-serif; font-size: 0.88rem; line-height: 1.9; margin-top: 4px; color: #222; }
+.pd-letter .lbl { font-weight: 700; color: #1a237e; }
+.pd-letter .boxline { border: 1px solid #c5cae9; border-radius: 6px; padding: 10px 14px; margin: 10px 0; background: #f8f9ff; }
 </style>
 </head>
 <body>
@@ -160,53 +178,82 @@ textarea:focus { outline: none; border-color: #1a237e; }
 
 <!-- PRINTABLE: Fabric Issue Challan -->
 <div class="print-doc" id="print-challan">
-  <div class="pd-header">
-    <div class="gst"><span>GSTIN : 08AAMPA9743N1Z4</span><span>M: 9829067789, 9829065024</span></div>
-    <h1>AGARWAL FABRICS</h1>
-    <div class="tag">A HOUSE OF PRINTED | DYED | GREY FABRICS</div>
-    <div class="title">JOB WORK FABRIC CHALLAN</div>
-  </div>
-  <div class="pd-meta">
-    <div><b>Party Name:</b> <span id="pc-party"></span></div>
-    <div><b>Date:</b> <span id="pc-date"></span></div>
-    <div><b>Challan No.:</b> <span id="pc-challanno"></span></div>
-    <div><b>Transport:</b> <span id="pc-transport"></span></div>
-    <div class="full"><b>L.R. Number(s):</b> <span id="pc-lrnumbers"></span></div>
-  </div>
-  <table class="pd-table">
-    <thead><tr><th>S.No.</th><th>Fabric Quality</th><th>Bale No.</th><th>Meter</th></tr></thead>
-    <tbody id="pc-table-body"></tbody>
-    <tfoot><tr><td colspan="3"><b>TOTAL</b></td><td id="pc-total"></td></tr></tfoot>
-  </table>
-  <div class="pd-sign">
-    <div>Receiver's Signature</div>
-    <div>For:- AGARWAL FABRICS</div>
+  <div class="pd-frame">
+    <div class="pd-topline">
+      <span>GSTIN: 08AAMPA9743N1Z4</span>
+      <span>M: 9829067789, 9829065024</span>
+    </div>
+    <div class="pd-brand">
+      <div class="crest">A HOUSE OF PRINTED · DYED · GREY FABRICS</div>
+      <h1>Agarwal Fabrics</h1>
+      <div class="tag">Patel Bhawan, Sanganer Road, Opp. Saroj Nursery, Sanganer, Jaipur</div>
+    </div>
+    <hr class="pd-rule">
+    <div class="pd-doctitle">Job Work Fabric Challan</div>
+
+    <div class="pd-meta">
+      <div><span class="lbl">Party Name</span><span class="val" id="pc-party"></span></div>
+      <div><span class="lbl">Date</span><span class="val" id="pc-date"></span></div>
+      <div><span class="lbl">Challan No.</span><span class="val" id="pc-challanno"></span></div>
+      <div><span class="lbl">Transport</span><span class="val" id="pc-transport"></span></div>
+      <div class="full"><span class="lbl">L.R. Number(s)</span><span class="val" id="pc-lrnumbers"></span></div>
+    </div>
+
+    <table class="pd-table">
+      <thead><tr><th>S.No.</th><th>Fabric Quality</th><th>Bale No.</th><th>Meter</th></tr></thead>
+      <tbody id="pc-table-body"></tbody>
+      <tfoot><tr><td colspan="3" style="text-align:right;">TOTAL</td><td id="pc-total"></td></tr></tfoot>
+    </table>
+
+    <div class="pd-sign">
+      <div>Receiver's Signature</div>
+      <div>For Agarwal Fabrics</div>
+    </div>
   </div>
 </div>
 
 <!-- PRINTABLE: Delivery Note (letter to transporter) -->
 <div class="print-doc" id="print-delivery">
-  <div class="pd-header">
-    <div class="gst"><span>GSTIN : 08AAMPA9743N1Z4</span><span>M: 9829067789, 9829065024</span></div>
-    <h1>AGARWAL FABRICS</h1>
-    <div class="tag">Patel Bhawan, Sanganer Road, opp. Saroj Nursery, Sanganer, Jaipur</div>
-  </div>
-  <div class="pd-letter">
-    <div><span class="lbl">No :-</span> <span id="pd-slipno"></span> &nbsp;&nbsp;&nbsp; <span class="lbl">Date:</span> <span id="pd-date"></span></div>
-    <div>Dear Sir,</div>
-    <div>To,</div>
-    <div id="pd-transport"></div>
-    <br>
-    <div><span class="lbl">Please Delivered :-</span> <span id="pd-party"></span></div>
-    <br>
-    <div><span class="lbl">Bale No :-</span> <span id="pd-balelist"></span></div>
-    <br>
-    <div style="text-align:right;"><span class="lbl">Total Bales:-</span> <span id="pd-totalbales"></span> Bale</div>
-    <br>
-    <div><span class="lbl">AGAINST L/R NO :-</span> <span id="pd-lrnumbers"></span></div>
-    <div><span class="lbl">FREIGHT PAID BY :</span> AGARWAL FABRICS</div>
-    <br><br>
-    <div>Thanking You <span style="float:right;">For AGARWAL FABRICS</span></div>
+  <div class="pd-frame">
+    <div class="pd-topline">
+      <span>GSTIN: 08AAMPA9743N1Z4</span>
+      <span>M: 9829067789, 9829065024</span>
+    </div>
+    <div class="pd-brand">
+      <div class="crest">A HOUSE OF PRINTED · DYED · GREY FABRICS</div>
+      <h1>Agarwal Fabrics</h1>
+      <div class="tag">Patel Bhawan, Sanganer Road, Opp. Saroj Nursery, Sanganer, Jaipur</div>
+    </div>
+    <hr class="pd-rule">
+
+    <div class="pd-letter">
+      <div style="display:flex;justify-content:space-between;">
+        <div><span class="lbl">No :-</span> <span id="pd-slipno"></span></div>
+        <div><span class="lbl">Date:</span> <span id="pd-date"></span></div>
+      </div>
+      <hr class="pd-rule thin">
+      <div>Dear Sir,</div>
+      <div>To,</div>
+      <div style="font-weight:700;" id="pd-transport"></div>
+
+      <div class="boxline">
+        <span class="lbl">Please Delivered :-</span> <span id="pd-party" style="font-weight:700;"></span>
+      </div>
+
+      <div class="boxline">
+        <span class="lbl">Bale No :-</span> <span id="pd-balelist"></span>
+      </div>
+
+      <div style="text-align:right;margin:8px 0;"><span class="lbl">Total Bales :-</span> <b id="pd-totalbales"></b> Bale</div>
+
+      <div><span class="lbl">Against L/R No :-</span> <span id="pd-lrnumbers"></span></div>
+      <div><span class="lbl">Freight Paid By :-</span> Agarwal Fabrics</div>
+
+      <div style="display:flex;justify-content:space-between;margin-top:50px;">
+        <div>Thanking You</div>
+        <div>For Agarwal Fabrics</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -354,22 +401,44 @@ async function pushIssue() {
 
 let lastPushMeta = null;
 
+// Remembers what you typed before, per bill number, so you don't retype it
+// every time. Stored in this browser only - not pulled live from the sheet
+// (Zoho's API has no way to read that back, only search for known text).
+const MEMORY_KEY = 'agarwal_issue_memory_v1';
+
+function loadMemory() {
+  try {
+    return JSON.parse(localStorage.getItem(MEMORY_KEY)) || { transport: '', bills: {} };
+  } catch (e) {
+    return { transport: '', bills: {} };
+  }
+}
+
+function saveMemory(mem) {
+  try { localStorage.setItem(MEMORY_KEY, JSON.stringify(mem)); } catch (e) {}
+}
+
 function renderPrintDetails(groups) {
   const card = document.getElementById('print-details-card');
   card.classList.remove('hidden');
+  const mem = loadMemory();
+
+  document.getElementById('print-transport').value = mem.transport || '';
 
   const container = document.getElementById('print-bill-blocks');
-  container.innerHTML = groups.map((g, gi) => `
+  container.innerHTML = groups.map((g, gi) => {
+    const remembered = mem.bills[g.billNo] || {};
+    return `
     <div class="print-bill-block" data-bill-no="${g.billNo}">
       <h3>Bill ${g.billNo}</h3>
       <div class="grid2">
         <div class="field">
           <label>Fabric Quality</label>
-          <input type="text" class="pb-quality" placeholder="e.g. 60*60-TAJ">
+          <input type="text" class="pb-quality" placeholder="e.g. 60*60-TAJ" value="${(remembered.quality || '').replace(/"/g,'&quot;')}">
         </div>
         <div class="field">
           <label>L.R. Number (original bilty)</label>
-          <input type="text" class="pb-lrnumber" placeholder="e.g. 608555">
+          <input type="text" class="pb-lrnumber" placeholder="e.g. 608555" value="${(remembered.lrNumber || '').replace(/"/g,'&quot;')}">
         </div>
       </div>
       <div style="font-size:0.7rem;color:#888;font-weight:700;text-transform:uppercase;margin:10px 0 4px;">Meters per bale</div>
@@ -380,7 +449,8 @@ function renderPrintDetails(groups) {
         </div>
       `).join('')}
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -398,6 +468,17 @@ function collectPrintData() {
     });
     groups.push({ billNo, quality, lrNumber, bales });
   });
+
+  // Remember these for next time - transport globally, quality/LR per bill number
+  const mem = loadMemory();
+  if (transport) mem.transport = transport;
+  groups.forEach(g => {
+    if (g.quality || g.lrNumber) {
+      mem.bills[g.billNo] = { quality: g.quality || (mem.bills[g.billNo]?.quality || ''), lrNumber: g.lrNumber || (mem.bills[g.billNo]?.lrNumber || '') };
+    }
+  });
+  saveMemory(mem);
+
   return { transport, groups };
 }
 
