@@ -6,590 +6,454 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Bill Updater">
+<meta name="apple-mobile-web-app-title" content="Issue Updater">
 <meta name="theme-color" content="#1a237e">
-<title>Agarwal Fabrics – Bill Updater</title>
+<title>Agarwal Fabrics – Issue Updater</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; min-height: 100vh; }
 .header { background: linear-gradient(135deg, #1a237e, #283593); color: white; padding: 20px 24px; }
 .header h1 { font-size: 1.3rem; font-weight: 700; }
 .header p { font-size: 0.8rem; opacity: 0.8; margin-top: 3px; }
-.container { max-width: 900px; margin: 20px auto; padding: 0 16px; }
-
-.mode-selector { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
-@media(max-width:500px){ .mode-selector { grid-template-columns: 1fr 1fr; } }
-.mode-btn { padding: 12px 8px; border: 2px solid #c5cae9; border-radius: 10px; background: white; cursor: pointer; text-align: center; transition: all 0.2s; }
-.mode-btn:hover { border-color: #1a237e; }
-.mode-btn.active { border-color: #1a237e; background: #1a237e; color: white; }
-.mode-btn .mi { font-size: 1.5rem; margin-bottom: 4px; }
-.mode-btn .mt { font-size: 0.82rem; font-weight: 700; }
-.mode-btn .md { font-size: 0.68rem; opacity: 0.65; margin-top: 2px; }
-.mode-btn.active .md { opacity: 0.8; }
+.container { max-width: 700px; margin: 20px auto; padding: 0 16px; }
 
 .card { background: white; border-radius: 12px; box-shadow: 0 2px 14px rgba(0,0,0,0.08); padding: 20px; margin-bottom: 16px; }
 .card h2 { font-size: 0.95rem; font-weight: 700; color: #1a237e; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
 .sb { background: #1a237e; color: white; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.74rem; font-weight: 800; flex-shrink: 0; }
 
-.upload-grid { display: grid; gap: 10px; }
-.g1 { grid-template-columns: 1fr; }
-.g2 { grid-template-columns: 1fr 1fr; }
-.g3 { grid-template-columns: 1fr 1fr 1fr; }
-.g4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
-@media(max-width:600px){ .g3,.g4 { grid-template-columns: 1fr 1fr; } }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 0.7rem; font-weight: 700; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+.field input, .field select { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 0.9rem; font-family: inherit; }
+.field input:focus, .field select:focus { outline: none; border-color: #1a237e; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media(max-width:500px){ .grid2 { grid-template-columns: 1fr; } }
 
-.ua { border: 2px dashed #c5cae9; border-radius: 10px; padding: 16px 10px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8f9ff; min-height: 110px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
-.ua:hover { border-color: #1a237e; background: #e8eaf6; }
-.ua.has-file { border-color: #4caf50; background: #f1f8f1; }
-.ua .ui { font-size: 1.6rem; margin-bottom: 4px; }
-.ua p { color: #444; font-size: 0.78rem; font-weight: 700; }
-.ua .uh { color: #999; font-size: 0.68rem; margin-top: 2px; }
-.ua.optional { border-style: dashed; opacity: 0.85; }
-.opt-tag { position: absolute; top: 6px; right: 6px; background: #fff3e0; color: #e65100; font-size: 0.6rem; font-weight: 700; padding: 1px 5px; border-radius: 4px; }
+.bill-group { border: 1.5px solid #e0e0e0; border-radius: 10px; padding: 14px; margin-bottom: 12px; background: #fafbff; }
+.bill-group-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.bill-group-header span { font-size: 0.78rem; font-weight: 700; color: #1a237e; }
+.remove-group-btn { background: #ffebee; color: #c62828; border: none; border-radius: 6px; padding: 4px 10px; font-size: 0.75rem; cursor: pointer; font-weight: 700; }
+.remove-group-btn:hover { background: #ffcdd2; }
+textarea { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 0.88rem; font-family: inherit; min-height: 70px; resize: vertical; }
+textarea:focus { outline: none; border-color: #1a237e; }
+.hint { font-size: 0.72rem; color: #999; margin-top: 4px; }
 
-.previews { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-.previews img { max-height: 120px; border-radius: 8px; border: 1px solid #ddd; }
+.add-group-btn { background: #eceff1; color: #37474f; border: none; border-radius: 8px; padding: 10px; width: 100%; font-size: 0.82rem; font-weight: 700; cursor: pointer; margin-top: 4px; }
+.add-group-btn:hover { background: #cfd8dc; }
 
-.row-config { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: flex-end; }
-.field { flex: 1; min-width: 110px; }
-.field label { display: block; font-size: 0.72rem; font-weight: 700; color: #555; margin-bottom: 4px; text-transform: uppercase; }
-.field input { width: 100%; padding: 9px 11px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 0.88rem; outline: none; }
-.field input:focus { border-color: #1a237e; }
-
-.btn-main { background: #1a237e; color: white; width: 100%; margin-top: 14px; padding: 13px; font-size: 0.95rem; font-weight: 700; border: none; border-radius: 9px; cursor: pointer; }
+.btn-main { background: #1a237e; color: white; width: 100%; margin-top: 6px; padding: 13px; font-size: 0.95rem; font-weight: 700; border: none; border-radius: 9px; cursor: pointer; }
 .btn-main:hover { background: #283593; }
 .btn-main:disabled { background: #9fa8da; cursor: not-allowed; }
 
-.progress-steps { margin-top: 12px; display: none; }
-.sr { display: flex; align-items: center; gap: 9px; padding: 7px 0; border-bottom: 1px solid #eee; font-size: 0.82rem; }
-.sr:last-child { border-bottom: none; }
-.si { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; flex-shrink: 0; font-weight: 700; }
-.sp { background: #f0f0f0; color: #999; }
-.sa { background: #e3f2fd; color: #1565c0; }
-.sd { background: #e8f5e9; color: #2e7d32; }
-.sf { background: #ffebee; color: #c62828; }
-.ms { width: 13px; height: 13px; border: 2px solid #90caf9; border-top-color: #1565c0; border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.stb { padding: 11px 14px; border-radius: 8px; font-size: 0.85rem; margin-top: 10px; }
-.ss { background: #e8f5e9; color: #2e7d32; }
-.se { background: #ffebee; color: #c62828; }
-
-.sg { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px,1fr)); gap: 8px; margin-bottom: 12px; }
-.si2 { background: #f8f9ff; border: 1.5px solid #c5cae9; border-radius: 8px; padding: 9px 11px; }
-.sl { font-size: 0.65rem; color: #888; font-weight: 700; text-transform: uppercase; }
-.sv { font-size: 0.88rem; color: #1a237e; font-weight: 800; margin-top: 2px; }
-.br { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #eee; font-size: 0.8rem; }
-.br:last-child { border-bottom: none; }
+.status-box { border-radius: 9px; padding: 11px 14px; margin-bottom: 16px; font-size: 0.82rem; font-weight: 600; }
+.se { background: #ffebee; color: #c62828; border: 1.5px solid #ef9a9a; }
+.ss { background: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; }
 .hidden { display: none; }
-.ib { background: #e8f5e9; border: 1.5px solid #4caf50; border-radius: 9px; padding: 11px 14px; margin-bottom: 16px; font-size: 0.82rem; color: #2e7d32; font-weight: 600; }
 
-/* Review & Edit step */
-.rev-input { width: 100%; padding: 6px 7px; border: 1px solid #c5cae9; border-radius: 6px; font-size: 0.85rem; margin-top: 3px; font-weight: 700; color: #1a237e; font-family: inherit; }
-.rev-input:focus { outline: none; border-color: #1a237e; }
-.bale-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #eee; }
-.bale-row:last-child { border-bottom: none; }
-.bale-row .bi { width: 22px; color: #999; font-size: 0.78rem; flex-shrink: 0; }
-.bale-row input { flex: 1; padding: 7px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.85rem; min-width: 0; }
-.bale-row input:focus { outline: none; border-color: #1a237e; }
-.bale-row .rm-btn { background: #ffebee; color: #c62828; border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 0.8rem; flex-shrink: 0; }
-.rm-btn:hover { background: #ffcdd2; }
-.add-row-btn { background: #eceff1; color: #37474f; border: none; border-radius: 8px; padding: 9px; width: 100%; font-size: 0.82rem; font-weight: 700; cursor: pointer; margin-top: 6px; }
-.add-row-btn:hover { background: #cfd8dc; }
-.btn-secondary { background: #546e7a; }
-.btn-secondary:hover { background: #37474f; }
-.sw { background: #fff3e0; color: #e65100; }
+.result-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #eee; font-size: 0.82rem; gap: 10px; }
+.result-row:last-child { border-bottom: none; }
+.result-row .rl { color: #555; }
+.result-row .rl b { color: #1a237e; }
+.result-row .rerr { color: #c62828; font-size: 0.76rem; flex: 1; text-align: right; }
+.result-row .rok { color: #2e7d32; font-weight: 700; }
+
+/* Print details fill-in card */
+.print-bill-block { border: 1.5px solid #e0e0e0; border-radius: 10px; padding: 14px; margin-bottom: 12px; background: #fafbff; }
+.print-bill-block h3 { font-size: 0.8rem; font-weight: 700; color: #1a237e; margin-bottom: 10px; }
+.meter-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+.meter-row:last-child { border-bottom: none; }
+.meter-row .mb { width: 70px; color: #555; font-weight: 700; flex-shrink: 0; }
+.meter-row input { flex: 1; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.85rem; }
+.meter-row input:focus { outline: none; border-color: #1a237e; }
+.print-btns { display: flex; gap: 10px; margin-top: 14px; }
+.btn-print { flex: 1; background: #37474f; color: white; padding: 12px; font-size: 0.85rem; font-weight: 700; border: none; border-radius: 9px; cursor: pointer; }
+.btn-print:hover { background: #263238; }
+
+/* Printable documents - hidden on screen, shown only via window.print() */
+.print-doc { display: none; }
+@media print {
+  body * { visibility: hidden; }
+  .print-doc.active, .print-doc.active * { visibility: visible; }
+  .print-doc.active { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 20px; }
+}
+.pd-header { text-align: center; margin-bottom: 16px; }
+.pd-header .gst { display: flex; justify-content: space-between; font-size: 0.8rem; }
+.pd-header h1 { font-size: 1.8rem; font-family: Georgia, serif; margin: 6px 0; }
+.pd-header .tag { font-size: 0.8rem; text-decoration: underline; }
+.pd-header .title { font-weight: 700; margin-top: 8px; font-size: 0.95rem; }
+.pd-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 0.85rem; }
+.pd-table th, .pd-table td { border: 1px solid #333; padding: 7px 10px; text-align: center; }
+.pd-table th { background: #eee; }
+.pd-meta { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #333; margin-top: 14px; font-size: 0.85rem; }
+.pd-meta > div { padding: 8px 12px; border-bottom: 1px solid #333; }
+.pd-meta .full { grid-column: 1 / 3; }
+.pd-sign { display: flex; justify-content: space-between; margin-top: 40px; font-size: 0.85rem; }
+.pd-letter { font-size: 0.9rem; line-height: 1.8; margin-top: 20px; }
+.pd-letter .lbl { font-weight: 700; }
 </style>
 </head>
 <body>
+
 <div class="header">
-  <h1>🧵 Agarwal Fabrics – Bill Updater</h1>
-  <p>Select mode → Upload photos → Push to Zoho Sheet automatically</p>
+  <h1>🚚 Issue Updater</h1>
+  <p>Fill in a challan for bales already received</p>
 </div>
+
 <div class="container">
 
-<div class="ib">✅ System active — token managed automatically!</div>
-
-<!-- MODE SELECTOR -->
-<div class="mode-selector">
-  <div class="mode-btn active" onclick="setMode('complete')" id="mode-complete">
-    <div class="mi">📋</div>
-    <div class="mt">Complete Bill</div>
-    <div class="md">All details in one bill (like Nikita)</div>
-  </div>
-  <div class="mode-btn" onclick="setMode('full')" id="mode-full">
-    <div class="mi">📄📦🚛</div>
-    <div class="mt">Bill + Slips + Bilty</div>
-    <div class="md">Separate bill, bale slips & bilty</div>
-  </div>
-  <div class="mode-btn" onclick="setMode('bill')" id="mode-bill">
-    <div class="mi">📄🚛</div>
-    <div class="mt">Bill + Bilty</div>
-    <div class="md">Bale slips coming later</div>
-  </div>
-  <div class="mode-btn" onclick="setMode('bale')" id="mode-bale">
-    <div class="mi">📦</div>
-    <div class="mt">Bale Slips Only</div>
-    <div class="md">Slips arrived separately</div>
-  </div>
-</div>
-
-<!-- UPLOAD -->
-<div class="card">
-  <h2><span class="sb">1</span> Upload Photos</h2>
-
-  <!-- COMPLETE MODE -->
-  <div id="upload-complete">
-    <div class="upload-grid g1">
-      <div class="ua" id="ua-complete" onclick="document.getElementById('fi-complete').click()">
-        <div class="ui">📋</div>
-        <p>Complete Bill Photo</p>
-        <p class="uh">Single bill with all details (bale wise)</p>
-        <input type="file" id="fi-complete" accept="image/*" capture="environment" style="display:none" onchange="handleFile('complete',this.files[0])">
+  <div class="card">
+    <h2><span class="sb">1</span> Challan Details</h2>
+    <div class="grid2">
+      <div class="field">
+        <label>Sheet / Quality</label>
+        <select id="sheet-name">
+          <option value="60x60">60x60</option>
+          <option value="100x100">100x100</option>
+          <option value="60x60_63">60x60_63</option>
+          <option value="80x72">80x72</option>
+          <option value="K. DORIYA">K. DORIYA</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Challan Date</label>
+        <input type="date" id="challan-date">
+      </div>
+      <div class="field">
+        <label>Challan No.</label>
+        <input type="text" id="challan-no" placeholder="e.g. 143">
+      </div>
+      <div class="field">
+        <label>Party Name</label>
+        <input type="text" id="party-name" placeholder="e.g. LAXMI PRINTS">
       </div>
     </div>
   </div>
 
-  <!-- FULL MODE -->
-  <div id="upload-full" class="hidden">
-    <div class="upload-grid g4">
-      <div class="ua" id="ua-main" onclick="document.getElementById('fi-main').click()">
-        <div class="ui">📄</div>
-        <p>Main Bill</p>
-        <p class="uh">Tax Invoice</p>
-        <input type="file" id="fi-main" accept="image/*" capture="environment" style="display:none" onchange="handleFile('main',this.files[0])">
-      </div>
-      <div class="ua" id="ua-bale1" onclick="document.getElementById('fi-bale1').click()">
-        <div class="ui">📦</div>
-        <p>Bale Slips 1</p>
-        <p class="uh">First photo of slips</p>
-        <input type="file" id="fi-bale1" accept="image/*" capture="environment" style="display:none" onchange="handleFile('bale1',this.files[0])">
-      </div>
-      <div class="ua optional" id="ua-bale2" onclick="document.getElementById('fi-bale2').click()">
-        <div class="opt-tag">Optional</div>
-        <div class="ui">📦</div>
-        <p>Bale Slips 2</p>
-        <p class="uh">Second photo if needed</p>
-        <input type="file" id="fi-bale2" accept="image/*" capture="environment" style="display:none" onchange="handleFile('bale2',this.files[0])">
-      </div>
-      <div class="ua optional" id="ua-bilty" onclick="document.getElementById('fi-bilty').click()">
-        <div class="opt-tag">Optional</div>
-        <div class="ui">🚛</div>
-        <p>Bilty / LR Copy</p>
-        <p class="uh">For transport details</p>
-        <input type="file" id="fi-bilty" accept="image/*" capture="environment" style="display:none" onchange="handleFile('bilty',this.files[0])">
-      </div>
-    </div>
+  <div class="card">
+    <h2><span class="sb">2</span> Bale Numbers</h2>
+    <div id="bill-groups"></div>
+    <button class="add-group-btn" onclick="addBillGroup()">+ Add another bill (if this challan mixes bills)</button>
   </div>
 
-  <!-- BILL + BILTY MODE -->
-  <div id="upload-bill" class="hidden">
-    <div class="upload-grid g2">
-      <div class="ua" id="ua-billonly" onclick="document.getElementById('fi-billonly').click()">
-        <div class="ui">📄</div>
-        <p>Main Bill Photo</p>
-        <p class="uh">Invoice / Tax Bill</p>
-        <input type="file" id="fi-billonly" accept="image/*" capture="environment" style="display:none" onchange="handleFile('billonly',this.files[0])">
-      </div>
-      <div class="ua optional" id="ua-biltyonly" onclick="document.getElementById('fi-biltyonly').click()">
-        <div class="opt-tag">Optional</div>
-        <div class="ui">🚛</div>
-        <p>Bilty / LR Copy</p>
-        <p class="uh">For transport details</p>
-        <input type="file" id="fi-biltyonly" accept="image/*" capture="environment" style="display:none" onchange="handleFile('biltyonly',this.files[0])">
-      </div>
-    </div>
+  <button class="btn-main" id="push-btn" onclick="pushIssue()">📤 Fill In Challan</button>
+
+  <div id="status-box" class="status-box hidden"></div>
+
+  <div class="card hidden" id="results-card">
+    <h2><span class="sb">✓</span> Results</h2>
+    <div id="results-list"></div>
   </div>
 
-  <!-- BALE ONLY MODE -->
-  <div id="upload-bale" class="hidden">
-    <div class="upload-grid g2">
-      <div class="ua" id="ua-baleonly1" onclick="document.getElementById('fi-baleonly1').click()">
-        <div class="ui">📦</div>
-        <p>Bale Slips Photo 1</p>
-        <p class="uh">First photo of bale slips</p>
-        <input type="file" id="fi-baleonly1" accept="image/*" capture="environment" style="display:none" onchange="handleFile('baleonly1',this.files[0])">
-      </div>
-      <div class="ua optional" id="ua-baleonly2" onclick="document.getElementById('fi-baleonly2').click()">
-        <div class="opt-tag">Optional</div>
-        <div class="ui">📦</div>
-        <p>Bale Slips Photo 2</p>
-        <p class="uh">Second photo if needed</p>
-        <input type="file" id="fi-baleonly2" accept="image/*" capture="environment" style="display:none" onchange="handleFile('baleonly2',this.files[0])">
-      </div>
-    </div>
-  </div>
-
-  <!-- Previews -->
-  <div class="previews" id="previews"></div>
-</div>
-
-<!-- ROW CONFIG -->
-<div class="card">
-  <h2><span class="sb">2</span> Enter Details & Push</h2>
-  <div class="row-config">
+  <div class="card hidden" id="print-details-card">
+    <h2><span class="sb">3</span> Add Print Details</h2>
     <div class="field">
-      <label>Starting Row</label>
-      <input type="number" id="start-row" placeholder="e.g. 609" min="1">
+      <label>Delivery Transport</label>
+      <input type="text" id="print-transport" placeholder="e.g. SOUTH INDIA TRANSPORT">
     </div>
-    <div class="field">
-      <label>Quality</label>
-      <input type="text" id="quality" placeholder="e.g. 60x60-TAJ">
-    </div>
-    <div class="field">
-      <label>Sheet Name</label>
-      <input type="text" id="sheet-name" value="60x60">
+    <div id="print-bill-blocks"></div>
+    <div class="print-btns">
+      <button class="btn-print" onclick="printDoc('challan')">🖨️ Print Challan</button>
+      <button class="btn-print" onclick="printDoc('delivery')">🖨️ Print Delivery Note</button>
     </div>
   </div>
-  <button class="btn-main" id="main-btn" onclick="runPipeline()">🔍 Extract &amp; Review</button>
 
-  <div class="progress-steps" id="progress-steps">
-    <div class="sr"><div class="si sp" id="s1i">1</div><span id="s1t">Waking up server...</span></div>
-    <div class="sr"><div class="si sp" id="s2i">2</div><span id="s2t">Reading bill with AI...</span></div>
-    <div class="sr"><div class="si sp" id="s3i">3</div><span id="s3t">Waiting for your review...</span></div>
+</div>
+
+<!-- PRINTABLE: Fabric Issue Challan -->
+<div class="print-doc" id="print-challan">
+  <div class="pd-header">
+    <div class="gst"><span>GSTIN : 08AAMPA9743N1Z4</span><span>M: 9829067789, 9829065024</span></div>
+    <h1>AGARWAL FABRICS</h1>
+    <div class="tag">A HOUSE OF PRINTED | DYED | GREY FABRICS</div>
+    <div class="title">JOB WORK FABRIC CHALLAN</div>
   </div>
-  <div id="status-el" class="hidden"></div>
+  <div class="pd-meta">
+    <div><b>Party Name:</b> <span id="pc-party"></span></div>
+    <div><b>Date:</b> <span id="pc-date"></span></div>
+    <div><b>Challan No.:</b> <span id="pc-challanno"></span></div>
+    <div><b>Transport:</b> <span id="pc-transport"></span></div>
+    <div class="full"><b>L.R. Number(s):</b> <span id="pc-lrnumbers"></span></div>
+  </div>
+  <table class="pd-table">
+    <thead><tr><th>S.No.</th><th>Fabric Quality</th><th>Bale No.</th><th>Meter</th></tr></thead>
+    <tbody id="pc-table-body"></tbody>
+    <tfoot><tr><td colspan="3"><b>TOTAL</b></td><td id="pc-total"></td></tr></tfoot>
+  </table>
+  <div class="pd-sign">
+    <div>Receiver's Signature</div>
+    <div>For:- AGARWAL FABRICS</div>
+  </div>
 </div>
 
-<!-- REVIEW & EDIT (shown after extraction, before push) -->
-<div class="card hidden" id="review-card">
-  <h2><span class="sb">✓</span> Review Extracted Data</h2>
-  <div id="review-warning" class="hidden"></div>
-  <div class="sg" id="review-bill-fields"></div>
-  <div style="font-size:0.7rem;color:#888;font-weight:700;text-transform:uppercase;margin:14px 0 6px;">Bale Numbers &amp; Meters</div>
-  <div id="review-bale-table"></div>
-  <button class="add-row-btn" onclick="addBaleRow()">+ Add Bale Row</button>
-  <button class="btn-main" id="push-btn" onclick="confirmPush()">✅ Looks Good — Push to Zoho Sheet</button>
+<!-- PRINTABLE: Delivery Note (letter to transporter) -->
+<div class="print-doc" id="print-delivery">
+  <div class="pd-header">
+    <div class="gst"><span>GSTIN : 08AAMPA9743N1Z4</span><span>M: 9829067789, 9829065024</span></div>
+    <h1>AGARWAL FABRICS</h1>
+    <div class="tag">Patel Bhawan, Sanganer Road, opp. Saroj Nursery, Sanganer, Jaipur</div>
+  </div>
+  <div class="pd-letter">
+    <div><span class="lbl">No :-</span> <span id="pd-slipno"></span> &nbsp;&nbsp;&nbsp; <span class="lbl">Date:</span> <span id="pd-date"></span></div>
+    <div>Dear Sir,</div>
+    <div>To,</div>
+    <div id="pd-transport"></div>
+    <br>
+    <div><span class="lbl">Please Delivered :-</span> <span id="pd-party"></span></div>
+    <br>
+    <div><span class="lbl">Bale No :-</span> <span id="pd-balelist"></span></div>
+    <br>
+    <div style="text-align:right;"><span class="lbl">Total Bales:-</span> <span id="pd-totalbales"></span> Bale</div>
+    <br>
+    <div><span class="lbl">AGAINST L/R NO :-</span> <span id="pd-lrnumbers"></span></div>
+    <div><span class="lbl">FREIGHT PAID BY :</span> AGARWAL FABRICS</div>
+    <br><br>
+    <div>Thanking You <span style="float:right;">For AGARWAL FABRICS</span></div>
+  </div>
 </div>
 
-<!-- RESULTS -->
-<div class="card hidden" id="results-card">
-  <h2><span class="sb">3</span> Results</h2>
-  <div class="sg" id="summary-grid"></div>
-  <div id="bale-list"></div>
-</div>
-
-</div>
 <script>
 const SERVER = 'https://zoho-bill-server.onrender.com';
-let files = {};
-let currentMode = 'complete';
+let groupCount = 0;
 
-function setMode(mode) {
-  currentMode = mode;
-  ['complete','full','bill','bale'].forEach(m => {
-    document.getElementById(`mode-${m}`).classList.toggle('active', m === mode);
-    document.getElementById(`upload-${m}`).classList.toggle('hidden', m !== mode);
+function addBillGroup() {
+  groupCount++;
+  const id = groupCount;
+  const container = document.getElementById('bill-groups');
+  const div = document.createElement('div');
+  div.className = 'bill-group';
+  div.dataset.groupId = id;
+  div.innerHTML = `
+    <div class="bill-group-header">
+      <span>Bill Group ${container.children.length + 1}</span>
+      ${container.children.length > 0 ? `<button class="remove-group-btn" onclick="removeBillGroup(${id})">✕ Remove</button>` : ''}
+    </div>
+    <div class="field">
+      <label>Bill No.</label>
+      <input type="text" class="group-bill-no" placeholder="e.g. 580/GST or 807">
+    </div>
+    <div class="field">
+      <label>Bale Numbers</label>
+      <textarea class="group-bale-numbers" placeholder="e.g. 2454, 2455, 2456, 2457, 2458&#10;or one per line, or a range like 2454-2458"></textarea>
+      <div class="hint">Comma, space, or newline separated. Ranges like "2454-2458" also work.</div>
+    </div>
+  `;
+  container.appendChild(div);
+}
+
+function removeBillGroup(id) {
+  const el = document.querySelector(`.bill-group[data-group-id="${id}"]`);
+  if (el) el.remove();
+  renumberGroups();
+}
+
+function renumberGroups() {
+  document.querySelectorAll('.bill-group').forEach((el, i) => {
+    el.querySelector('.bill-group-header span').textContent = `Bill Group ${i + 1}`;
   });
-  document.getElementById('previews').innerHTML = '';
-  files = {};
-  extractedMeta = null;
-  document.getElementById('review-card').classList.add('hidden');
-  document.getElementById('results-card').classList.add('hidden');
-  document.getElementById('status-el').classList.add('hidden');
-  document.getElementById('progress-steps').style.display = 'none';
 }
 
-function handleFile(key, file) {
-  if (!file) return;
-  files[key] = file;
-  document.getElementById(`ua-${key}`) && document.getElementById(`ua-${key}`).classList.add('has-file');
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const previews = document.getElementById('previews');
-    const existing = document.getElementById(`prev-${key}`);
-    if (existing) existing.remove();
-    const img = document.createElement('img');
-    img.id = `prev-${key}`;
-    img.src = ev.target.result;
-    previews.appendChild(img);
-  };
-  reader.readAsDataURL(file);
-}
-
-function setStep(num, state, text) {
-  const icon = document.getElementById(`s${num}i`);
-  const textEl = document.getElementById(`s${num}t`);
-  icon.className = `si s${state}`;
-  if (state==='a') icon.innerHTML = '<div class="ms"></div>';
-  else if (state==='d') icon.textContent = '✓';
-  else if (state==='f') icon.textContent = '✗';
-  else icon.textContent = num;
-  if (text) textEl.textContent = text;
+// Parses "2454, 2455, 2456-2458" style text into individual bale number strings
+function parseBaleNumbers(text) {
+  const parts = text.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+  const result = [];
+  for (const part of parts) {
+    const rangeMatch = part.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (rangeMatch) {
+      const start = parseInt(rangeMatch[1], 10);
+      const end = parseInt(rangeMatch[2], 10);
+      if (!isNaN(start) && !isNaN(end) && end >= start && (end - start) < 500) {
+        for (let n = start; n <= end; n++) result.push(String(n));
+        continue;
+      }
+    }
+    result.push(part);
+  }
+  return result;
 }
 
 function showStatus(type, msg) {
-  const el = document.getElementById('status-el');
-  el.className = `stb s${type}`;
-  el.innerHTML = msg;
-  el.classList.remove('hidden');
+  const box = document.getElementById('status-box');
+  box.className = 'status-box ' + (type === 'e' ? 'se' : 'ss');
+  box.textContent = msg;
+  box.classList.remove('hidden');
 }
 
-async function wakeServer() {
-  for (let i = 1; i <= 4; i++) {
-    try { const r = await fetch(SERVER+'/'); if(r.ok) return true; } catch(e) {}
-    if (i < 4) await sleep(15000);
-  }
-  return false;
-}
+async function pushIssue() {
+  const sheetName = document.getElementById('sheet-name').value;
+  const challanDateRaw = document.getElementById('challan-date').value;
+  const challanNo = document.getElementById('challan-no').value.trim();
+  const partyName = document.getElementById('party-name').value.trim();
 
-async function runPipeline() {
-  const startRow = parseInt(document.getElementById('start-row').value);
-  const sheetName = document.getElementById('sheet-name').value || '60x60';
-  const quality = document.getElementById('quality').value;
+  if (!challanDateRaw) { alert('Please pick a challan date'); return; }
+  if (!challanNo) { alert('Please enter the challan number'); return; }
+  if (!partyName) { alert('Please enter the party name'); return; }
 
-  if (!startRow || startRow < 1) { alert('Please enter a valid starting row number!'); return; }
+  const groupsData = [];
+  document.querySelectorAll('.bill-group').forEach(group => {
+    const billNo = group.querySelector('.group-bill-no').value.trim();
+    const baleText = group.querySelector('.group-bale-numbers').value.trim();
+    if (!billNo || !baleText) return;
+    const baleNumbers = parseBaleNumbers(baleText);
+    groupsData.push({ billNo, baleNumbers });
+  });
 
-  // Validate
-  if (currentMode === 'complete' && !files.complete) { alert('Please upload the bill photo!'); return; }
-  if (currentMode === 'full' && !files.main) { alert('Please upload the main bill photo!'); return; }
-  if (currentMode === 'full' && !files.bale1) { alert('Please upload at least one bale slips photo!'); return; }
-  if (currentMode === 'bill' && !files.billonly) { alert('Please upload the main bill photo!'); return; }
-  if (currentMode === 'bale' && !files.baleonly1) { alert('Please upload at least one bale slips photo!'); return; }
+  const bales = [];
+  groupsData.forEach(g => g.baleNumbers.forEach(baleNo => bales.push({ billNo: g.billNo, baleNo })));
 
-  const btn = document.getElementById('main-btn');
-  btn.disabled = true; btn.textContent = '⏳ Processing...';
+  if (bales.length === 0) { alert('Please enter at least one bill number and its bale numbers'); return; }
+
+  const btn = document.getElementById('push-btn');
+  btn.disabled = true; btn.textContent = '⏳ Working...';
+  document.getElementById('status-box').classList.add('hidden');
   document.getElementById('results-card').classList.add('hidden');
-  document.getElementById('review-card').classList.add('hidden');
-  document.getElementById('status-el').classList.add('hidden');
-  document.getElementById('progress-steps').style.display = 'block';
-
-  setStep(1,'a','Waking up server...');
-  setStep(2,'p','Reading with AI...');
-  setStep(3,'p','Waiting for your review...');
+  document.getElementById('print-details-card').classList.add('hidden');
 
   try {
-    const awake = await wakeServer();
-    if (!awake) { setStep(1,'f','Server not responding!'); showStatus('e','❌ Server not responding. Try again in 1 minute.'); btn.disabled=false; btn.textContent='🔍 Extract & Review'; return; }
-    setStep(1,'d','Server is awake ✅');
-    setStep(2,'a','Compressing & reading bill with AI...');
+    const resp = await fetch(`${SERVER}/issue-bales`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sheetName, challanDate: challanDateRaw, challanNo, partyName, bales })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
 
-    const payload = { mode: currentMode, sheetName, startRow, quality };
+    showStatus(data.failed > 0 ? 'e' : 's',
+      data.failed > 0
+        ? `⚠️ ${data.succeeded} succeeded, ${data.failed} failed — see details below. Slip No: ${data.slipNo}`
+        : `🎉 All ${data.succeeded} bale(s) updated! Slip No: ${data.slipNo}`
+    );
 
-    // Phone camera photos (often 3-12 MB, sometimes HEIC on iPhone) are much bigger
-    // than the old webcam/scanner photos this app was built around. Resize + convert
-    // to JPEG in the browser before sending, so uploads stay fast on mobile data -
-    // this also sidesteps HEIC files that some vision APIs can't read directly.
-    const toB64 = async f => {
-      const compressed = await compressImage(f);
-      return (await fileToBase64(compressed)).split(',')[1];
-    };
+    document.getElementById('results-card').classList.remove('hidden');
+    document.getElementById('results-list').innerHTML = data.results.map(r => `
+      <div class="result-row">
+        <span class="rl">Bill <b>${r.billNo}</b> · Bale <b>${r.baleNo}</b></span>
+        ${r.success
+          ? `<span class="rok">✅ Row ${r.rowIndex}</span>`
+          : `<span class="rerr">❌ ${r.error || 'Failed'}</span>`}
+      </div>
+    `).join('');
 
-    if (currentMode === 'complete') {
-      payload.mainImageBase64 = await toB64(files.complete);
-      payload.mainMediaType = 'image/jpeg';
-    } else if (currentMode === 'full') {
-      payload.mainImageBase64 = await toB64(files.main);
-      payload.mainMediaType = 'image/jpeg';
-      payload.baleImageBase64 = await toB64(files.bale1);
-      payload.baleMediaType = 'image/jpeg';
-      if (files.bale2) { payload.bale2ImageBase64 = await toB64(files.bale2); payload.bale2MediaType = 'image/jpeg'; }
-      if (files.bilty) { payload.biltyImageBase64 = await toB64(files.bilty); payload.biltyMediaType = 'image/jpeg'; }
-    } else if (currentMode === 'bill') {
-      payload.mainImageBase64 = await toB64(files.billonly);
-      payload.mainMediaType = 'image/jpeg';
-      if (files.biltyonly) { payload.biltyImageBase64 = await toB64(files.biltyonly); payload.biltyMediaType = 'image/jpeg'; }
-    } else if (currentMode === 'bale') {
-      payload.baleImageBase64 = await toB64(files.baleonly1);
-      payload.baleMediaType = 'image/jpeg';
-      if (files.baleonly2) { payload.bale2ImageBase64 = await toB64(files.baleonly2); payload.bale2MediaType = 'image/jpeg'; }
+    // Only offer printing for bales that actually succeeded
+    const succeededByGroup = groupsData.map(g => ({
+      billNo: g.billNo,
+      baleNumbers: g.baleNumbers.filter(bn =>
+        data.results.some(r => r.billNo === g.billNo && r.baleNo === bn && r.success)
+      )
+    })).filter(g => g.baleNumbers.length > 0);
+
+    if (succeededByGroup.length > 0) {
+      lastPushMeta = { sheetName, challanDate: challanDateRaw, challanNo, partyName, slipNo: data.slipNo };
+      renderPrintDetails(succeededByGroup);
     }
 
-    const resp = await fetch(`${SERVER}/extract-bill`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-
-    setStep(2,'d',`Bill read — ${(data.bales||[]).length} bales found ✅`);
-    setStep(3,'d','Review the data below, then push');
-    showStatus('s', '✅ Extraction complete — please review the data below before pushing to the sheet.');
-    renderReviewCard(data);
-
-  } catch(e) {
-    setStep(2,'f','Extraction failed');
-    showStatus('e','❌ Error: ' + e.message);
+  } catch (e) {
+    showStatus('e', '❌ Error: ' + e.message);
   }
 
-  btn.disabled = false; btn.textContent = '🔍 Extract & Review';
+  btn.disabled = false; btn.textContent = '📤 Fill In Challan';
 }
 
-// ── Review & Edit step ──
-let extractedMeta = null; // holds mode/sheetName/startRow from the extraction response
+let lastPushMeta = null;
 
-function renderReviewCard(data) {
-  extractedMeta = { mode: data.mode, sheetName: data.sheetName, startRow: data.startRow };
-  document.getElementById('review-card').classList.remove('hidden');
+function renderPrintDetails(groups) {
+  const card = document.getElementById('print-details-card');
+  card.classList.remove('hidden');
 
-  const warnEl = document.getElementById('review-warning');
-  if (data.warning) {
-    warnEl.className = 'stb sw';
-    warnEl.innerHTML = '⚠️ ' + data.warning;
-    warnEl.classList.remove('hidden');
+  const container = document.getElementById('print-bill-blocks');
+  container.innerHTML = groups.map((g, gi) => `
+    <div class="print-bill-block" data-bill-no="${g.billNo}">
+      <h3>Bill ${g.billNo}</h3>
+      <div class="grid2">
+        <div class="field">
+          <label>Fabric Quality</label>
+          <input type="text" class="pb-quality" placeholder="e.g. 60*60-TAJ">
+        </div>
+        <div class="field">
+          <label>L.R. Number (original bilty)</label>
+          <input type="text" class="pb-lrnumber" placeholder="e.g. 608555">
+        </div>
+      </div>
+      <div style="font-size:0.7rem;color:#888;font-weight:700;text-transform:uppercase;margin:10px 0 4px;">Meters per bale</div>
+      ${g.baleNumbers.map(bn => `
+        <div class="meter-row">
+          <span class="mb">${bn}</span>
+          <input type="text" class="pb-meter" data-bale="${bn}" placeholder="meters">
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function collectPrintData() {
+  const transport = document.getElementById('print-transport').value.trim();
+  const groups = [];
+  document.querySelectorAll('.print-bill-block').forEach(block => {
+    const billNo = block.dataset.billNo;
+    const quality = block.querySelector('.pb-quality').value.trim();
+    const lrNumber = block.querySelector('.pb-lrnumber').value.trim();
+    const bales = [];
+    block.querySelectorAll('.pb-meter').forEach(inp => {
+      bales.push({ baleNo: inp.dataset.bale, meters: inp.value.trim() });
+    });
+    groups.push({ billNo, quality, lrNumber, bales });
+  });
+  return { transport, groups };
+}
+
+function printDoc(type) {
+  if (!lastPushMeta) return;
+  const { transport, groups } = collectPrintData();
+  const allBales = groups.flatMap(g => g.bales);
+  const lrList = groups.map(g => g.lrNumber ? `${g.lrNumber}*${g.bales.length}` : null).filter(Boolean).join(', ');
+
+  if (type === 'challan') {
+    document.getElementById('pc-party').textContent = lastPushMeta.partyName;
+    document.getElementById('pc-date').textContent = formatDisplayDate(lastPushMeta.challanDate);
+    document.getElementById('pc-challanno').textContent = lastPushMeta.challanNo;
+    document.getElementById('pc-transport').textContent = transport || '—';
+    document.getElementById('pc-lrnumbers').textContent = lrList || '—';
+
+    let sno = 1, total = 0;
+    let rows = '';
+    groups.forEach(g => {
+      g.bales.forEach(b => {
+        const m = parseFloat(b.meters) || 0;
+        total += m;
+        rows += `<tr><td>${sno++}</td><td>${g.quality || '—'}</td><td>${b.baleNo}</td><td>${b.meters || '—'}</td></tr>`;
+      });
+    });
+    document.getElementById('pc-table-body').innerHTML = rows;
+    document.getElementById('pc-total').textContent = total ? total.toFixed(2) : '—';
+
+    document.getElementById('print-challan').classList.add('active');
+    window.print();
+    document.getElementById('print-challan').classList.remove('active');
+
   } else {
-    warnEl.classList.add('hidden');
-  }
+    document.getElementById('pd-slipno').textContent = lastPushMeta.slipNo;
+    document.getElementById('pd-date').textContent = formatDisplayDate(lastPushMeta.challanDate);
+    document.getElementById('pd-transport').textContent = transport || '—';
+    document.getElementById('pd-party').textContent = lastPushMeta.partyName;
+    document.getElementById('pd-balelist').textContent = allBales.map(b => b.baleNo).join(', ');
+    document.getElementById('pd-totalbales').textContent = allBales.length;
+    document.getElementById('pd-lrnumbers').textContent = lrList || '—';
 
-  const billFields = [
-    ['bill_date','Bill Date'], ['bill_no','Bill No.'], ['party_name','Party Name'],
-    ['quality','Quality'], ['bilty_no','Bilty No.'], ['total_bales','Total Bales'],
-    ['transporter','Transporter']
-  ];
-  const bd = data.billData || {};
-  document.getElementById('review-bill-fields').innerHTML = billFields.map(([key,label]) => {
-    const v = (bd[key] !== undefined && bd[key] !== null) ? bd[key] : '';
-    return `<div class="si2"><div class="sl">${label}</div><input class="rev-input" data-key="${key}" value="${String(v).replace(/"/g,'&quot;')}"></div>`;
-  }).join('');
-
-  renderBaleTable(data.bales || []);
-}
-
-function baleRowHTML(idx, baleNo, meters) {
-  const no = baleNo !== undefined && baleNo !== null ? baleNo : '';
-  const m = meters !== undefined && meters !== null ? meters : '';
-  return `<div class="bale-row">
-    <span class="bi">${idx+1}</span>
-    <input class="rev-bale-no" placeholder="Bale No." value="${String(no).replace(/"/g,'&quot;')}">
-    <input class="rev-bale-meters" placeholder="Meters" value="${String(m).replace(/"/g,'&quot;')}">
-    <button class="rm-btn" onclick="removeBaleRow(this)">✕</button>
-  </div>`;
-}
-
-function renderBaleTable(bales) {
-  const container = document.getElementById('review-bale-table');
-  if (!bales.length) {
-    container.innerHTML = '<p style="color:#999;font-size:0.82rem;padding:6px 0;">No bale rows (bill-only summary push)</p>';
-    return;
-  }
-  container.innerHTML = bales.map((b,i) => baleRowHTML(i, b.bale_no, b.meters)).join('');
-}
-
-function addBaleRow() {
-  const container = document.getElementById('review-bale-table');
-  const placeholder = container.querySelector('p');
-  if (placeholder) container.innerHTML = '';
-  const idx = container.querySelectorAll('.bale-row').length;
-  container.insertAdjacentHTML('beforeend', baleRowHTML(idx, '', ''));
-}
-
-function removeBaleRow(btn) {
-  btn.closest('.bale-row').remove();
-  // renumber the index labels
-  document.querySelectorAll('#review-bale-table .bale-row').forEach((row, i) => {
-    row.querySelector('.bi').textContent = i + 1;
-  });
-  if (!document.querySelectorAll('#review-bale-table .bale-row').length) {
-    document.getElementById('review-bale-table').innerHTML = '<p style="color:#999;font-size:0.82rem;padding:6px 0;">No bale rows (bill-only summary push)</p>';
+    document.getElementById('print-delivery').classList.add('active');
+    window.print();
+    document.getElementById('print-delivery').classList.remove('active');
   }
 }
 
-function collectReviewData() {
-  const billData = {};
-  document.querySelectorAll('#review-bill-fields .rev-input').forEach(inp => {
-    billData[inp.dataset.key] = inp.value.trim();
-  });
-  const bales = [];
-  document.querySelectorAll('#review-bale-table .bale-row').forEach(row => {
-    const no = row.querySelector('.rev-bale-no').value.trim();
-    const mRaw = row.querySelector('.rev-bale-meters').value.trim();
-    if (!no) return; // skip empty rows
-    const mNum = parseFloat(mRaw);
-    bales.push({ bale_no: no, meters: mRaw === '' ? '' : (isNaN(mNum) ? mRaw : mNum) });
-  });
-  return { billData, bales };
+function formatDisplayDate(isoDate) {
+  const d = new Date(isoDate);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${String(d.getDate()).padStart(2,'0')}-${months[d.getMonth()]}-${d.getFullYear()}`;
 }
 
-async function confirmPush() {
-  if (!extractedMeta) return;
-  const { billData, bales } = collectReviewData();
-
-  const pushBtn = document.getElementById('push-btn');
-  pushBtn.disabled = true; pushBtn.textContent = '⏳ Pushing...';
-  document.getElementById('progress-steps').style.display = 'block';
-  setStep(3,'a','Pushing to Zoho Sheet...');
-
-  try {
-    const resp = await fetch(`${SERVER}/push-bill`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mode: extractedMeta.mode,
-        sheetName: extractedMeta.sheetName,
-        startRow: extractedMeta.startRow,
-        billData, bales
-      })
-    });
-
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-
-    setStep(3,'d',`${data.pushed} rows pushed to Zoho Sheet ✅`);
-    showStatus('s', `🎉 Done! ${data.pushed} rows pushed to Zoho Sheet successfully!`);
-    showResults(data);
-    document.getElementById('review-card').classList.add('hidden');
-
-  } catch(e) {
-    setStep(3,'f','Push failed');
-    showStatus('e','❌ Error: ' + e.message);
-  }
-
-  pushBtn.disabled = false; pushBtn.textContent = '✅ Looks Good — Push to Zoho Sheet';
-}
-
-function showResults(data) {
-  document.getElementById('results-card').classList.remove('hidden');
-  const bill = data.billData || {};
-  document.getElementById('summary-grid').innerHTML = [
-    ['Bill Date',bill.bill_date],['Bill No.',bill.bill_no],['Party',bill.party_name],
-    ['Quality',bill.quality],['Bilty No.',bill.bilty_no],['Total Bales',bill.total_bales],
-    ['Transporter',bill.transporter],['Start Row',data.startRow]
-  ].map(([l,v])=>`<div class="si2"><div class="sl">${l}</div><div class="sv">${v||'—'}</div></div>`).join('');
-
-  document.getElementById('bale-list').innerHTML = (data.results||[]).map(r =>
-    `<div class="br"><span style="color:#999">Row ${r.row}</span><span style="font-weight:700">Bale ${r.bale_no||'—'}</span><span>${r.meters||'—'} mtrs</span><span>${r.success?'✅':'❌'}</span></div>`
-  ).join('');
-}
-
-function fileToBase64(file) {
-  return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(new Error('Read failed')); r.readAsDataURL(file); });
-}
-
-// Resizes to a max dimension and re-encodes as JPEG at reduced quality. Phone
-// camera photos can be 3-12+ MB; this typically brings them down to a few
-// hundred KB - much faster on mobile data - while staying plenty sharp for
-// document/handwriting reading. Also converts any input format (incl. HEIC on
-// iPhone, if the browser can decode it) to a plain JPEG blob.
-function compressImage(file, maxDim = 1800, quality = 0.85) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Read failed'));
-    reader.onload = e => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('Image decode failed'));
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
-          else { width = Math.round(width * maxDim / height); height = maxDim; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        canvas.toBlob(blob => {
-          if (!blob) return reject(new Error('Compression failed'));
-          resolve(blob);
-        }, 'image/jpeg', quality);
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+// Default the date field to today, and start with one bill group
+document.getElementById('challan-date').valueAsDate = new Date();
+addBillGroup();
 </script>
 </body>
 </html>
